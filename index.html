@@ -2,1064 +2,1202 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>定期点検管理</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>定期点検管理システム</title>
+
 <style>
   :root {
-    --primary: #1a56a0;
-    --primary-light: #2d6fc4;
-    --primary-dark: #0f3d7a;
-    --accent: #e8730a;
-    --success: #2e7d32;
-    --warning: #e65100;
-    --bg: #f0f4f8;
+    --bg: #f5f4f0;
     --surface: #ffffff;
-    --surface2: #f8fafc;
-    --border: #d0dae6;
-    --text: #1a2736;
-    --text2: #4a6178;
-    --text3: #8a9bb0;
-    --shadow: 0 2px 8px rgba(0,0,0,0.10);
-    --shadow-lg: 0 4px 20px rgba(0,0,0,0.15);
-    --radius: 12px;
-    --nav-height: 64px;
-    --header-height: 56px;
+    --surface2: #f0ede8;
+    --border: rgba(0,0,0,0.1);
+    --border2: rgba(0,0,0,0.18);
+    --text: #1a1a18;
+    --text2: #6b6b66;
+    --text3: #9e9e99;
+    --accent: #1a1a18;
+    --blue: #2563eb;
+    --blue-bg: #eff6ff;
+    --blue-txt: #1d4ed8;
+    --green: #16a34a;
+    --green-bg: #f0fdf4;
+    --green-txt: #15803d;
+    --amber-bg: #fffbeb;
+    --amber-txt: #92400e;
+    --red-bg: #fef2f2;
+    --red-txt: #991b1b;
+    --gray-bg: #f4f4f4;
+    --gray-txt: #555;
+    --radius: 8px;
+    --radius-lg: 12px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08);
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  body { font-family: 'Hiragino Sans', 'Yu Gothic', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.6; min-height: 100vh; }
 
-  /* ===== HEADER ===== */
-  #app-header {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-    height: var(--header-height);
-    background: var(--primary);
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 16px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-  }
-  #app-header h1 { color: #fff; font-size: 17px; font-weight: 700; letter-spacing: 0.03em; }
-  #header-right { display: flex; align-items: center; gap: 10px; }
-  #gas-dot {
-    width: 10px; height: 10px; border-radius: 50%;
-    background: #ccc; transition: background 0.3s;
-  }
-  #gas-dot.connected { background: #4caf50; }
-  #gas-dot.error { background: #f44336; }
-  #gas-label { color: rgba(255,255,255,0.8); font-size: 11px; }
-  #settings-btn {
-    background: rgba(255,255,255,0.15); border: none; border-radius: 8px;
-    color: #fff; padding: 6px 10px; font-size: 13px; cursor: pointer;
-  }
+  /* Layout */
+  .app { display: flex; min-height: 100vh; }
+  .sidebar { width: 220px; background: var(--accent); padding: 0; display: flex; flex-direction: column; flex-shrink: 0; }
+  .sidebar-logo { padding: 20px 18px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .sidebar-logo h1 { font-size: 13px; font-weight: 600; color: #fff; letter-spacing: .04em; line-height: 1.4; }
+  .sidebar-logo p { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+  .sidebar-nav { flex: 1; padding: 8px 0; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 18px; cursor: pointer; color: rgba(255,255,255,0.55); font-size: 13px; transition: all .15s; border-left: 3px solid transparent; }
+  .nav-item:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); }
+  .nav-item.active { background: rgba(255,255,255,0.1); color: #fff; border-left-color: #fff; }
+  .nav-icon { font-size: 15px; width: 18px; text-align: center; }
+  .nav-section { font-size: 10px; color: rgba(255,255,255,0.25); letter-spacing: .1em; text-transform: uppercase; padding: 16px 18px 4px; }
+  .sidebar-footer { padding: 16px 18px; border-top: 1px solid rgba(255,255,255,0.08); }
+  .gas-status { font-size: 11px; color: rgba(255,255,255,0.4); display: flex; align-items: center; gap: 6px; }
+  .gas-dot { width: 7px; height: 7px; border-radius: 50%; background: #ef4444; flex-shrink: 0; }
+  .gas-dot.connected { background: #22c55e; }
 
-  /* ===== MAIN ===== */
-  #main-content {
-    margin-top: var(--header-height);
-    margin-bottom: var(--nav-height);
-    min-height: calc(100vh - var(--header-height) - var(--nav-height));
-    padding: 16px;
-  }
+  .main { flex: 1; overflow-y: auto; }
+  .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 28px; height: 52px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+  .topbar-title { font-size: 15px; font-weight: 600; }
+  .topbar-actions { display: flex; gap: 8px; }
+  .content { padding: 24px 28px; }
+  .screen { display: none; }
+  .screen.active { display: block; }
 
-  /* ===== BOTTOM NAV ===== */
-  #bottom-nav {
-    position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
-    height: var(--nav-height);
-    background: var(--surface);
-    border-top: 1px solid var(--border);
-    display: flex;
-    box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
-  }
-  .nav-item {
-    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 3px; cursor: pointer; border: none; background: none;
-    color: var(--text3); font-size: 10px; font-weight: 600;
-    transition: color 0.2s;
-    padding: 8px 0;
-  }
-  .nav-item.active { color: var(--primary); }
-  .nav-icon { font-size: 22px; line-height: 1; }
-  .nav-item.active .nav-icon { transform: scale(1.1); }
+  /* Cards & Metrics */
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
+  .metric { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 18px; }
+  .metric-label { font-size: 11px; color: var(--text2); letter-spacing: .04em; margin-bottom: 6px; }
+  .metric-value { font-size: 28px; font-weight: 700; letter-spacing: -.02em; line-height: 1; }
+  .metric-sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; margin-bottom: 16px; }
+  .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .card-title { font-size: 14px; font-weight: 600; }
 
-  /* ===== PAGES ===== */
-  .page { display: none; }
-  .page.active { display: block; }
+  /* Buttons */
+  .btn { font-size: 12px; padding: 6px 14px; border-radius: var(--radius); border: 1px solid var(--border2); background: var(--surface); cursor: pointer; color: var(--text); font-family: inherit; transition: all .12s; }
+  .btn:hover { background: var(--surface2); }
+  .btn:disabled { opacity: .35; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-primary:hover { opacity: .85; background: var(--accent); }
+  .btn-sm { font-size: 11px; padding: 4px 10px; }
+  .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
 
-  /* ===== DASHBOARD ===== */
-  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
-  .stat-card {
-    background: var(--surface); border-radius: var(--radius); padding: 16px 14px;
-    box-shadow: var(--shadow);
-  }
-  .stat-label { font-size: 11px; color: var(--text3); font-weight: 600; margin-bottom: 6px; }
-  .stat-value { font-size: 28px; font-weight: 800; color: var(--primary); }
-  .stat-sub { font-size: 11px; color: var(--text2); margin-top: 2px; }
-  .stat-card.accent .stat-value { color: var(--accent); }
-  .stat-card.success .stat-value { color: var(--success); }
-  .stat-card.warning .stat-value { color: var(--warning); }
+  /* Badges */
+  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+  .badge-blue { background: var(--blue-bg); color: var(--blue-txt); }
+  .badge-green { background: var(--green-bg); color: var(--green-txt); }
+  .badge-amber { background: var(--amber-bg); color: var(--amber-txt); }
+  .badge-red { background: var(--red-bg); color: var(--red-txt); }
+  .badge-gray { background: var(--gray-bg); color: var(--gray-txt); }
 
-  .section-title { font-size: 14px; font-weight: 700; color: var(--text2); margin-bottom: 10px; letter-spacing: 0.04em; }
+  /* Table */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-size: 11px; color: var(--text2); font-weight: 600; padding: 8px 10px; border-bottom: 1px solid var(--border); letter-spacing: .03em; text-transform: uppercase; white-space: nowrap; }
+  td { padding: 11px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr.clickable { cursor: pointer; }
+  tr.clickable:hover td { background: var(--surface2); }
+  tr.selected td { background: var(--blue-bg); }
 
-  /* ===== PROPERTY CARDS ===== */
-  .property-card {
-    background: var(--surface); border-radius: var(--radius); padding: 14px 16px;
-    box-shadow: var(--shadow); margin-bottom: 10px;
-    border-left: 4px solid var(--border);
-    cursor: pointer; transition: box-shadow 0.15s, transform 0.15s;
-    -webkit-user-select: none;
+  /* Form elements */
+  .form-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .form-grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .form-grid4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 11px; color: var(--text2); font-weight: 500; letter-spacing: .03em; }
+  input[type=text], input[type=date], select, textarea {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--border2); border-radius: var(--radius);
+    font-size: 13px; font-family: inherit; background: var(--surface); color: var(--text);
+    outline: none; transition: border-color .12s;
   }
-  .property-card:active { transform: scale(0.99); box-shadow: var(--shadow-lg); }
-  .property-card.status-pending { border-left-color: #bbb; }
-  .property-card.status-scheduled { border-left-color: var(--primary); }
-  .property-card.status-repair { border-left-color: var(--accent); }
-  .property-card.status-done { border-left-color: var(--success); }
+  input:focus, select:focus, textarea:focus { border-color: var(--blue); }
+  input[readonly] { background: var(--surface2); color: var(--text2); }
+  textarea { min-height: 72px; resize: vertical; }
+  .sec-label { font-size: 10px; color: var(--text2); letter-spacing: .08em; text-transform: uppercase; font-weight: 600; margin-bottom: 10px; margin-top: 18px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  .sec-label:first-child { margin-top: 0; }
 
-  .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
-  .card-name { font-size: 15px; font-weight: 700; color: var(--text); }
-  .status-badge {
-    font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 20px;
-    white-space: nowrap; flex-shrink: 0; margin-left: 8px;
-  }
-  .badge-pending { background: #f0f0f0; color: #666; }
-  .badge-scheduled { background: #e3f0ff; color: var(--primary); }
-  .badge-repair { background: #fff3e0; color: var(--accent); }
-  .badge-done { background: #e8f5e9; color: var(--success); }
-  .card-address { font-size: 12px; color: var(--text2); margin-bottom: 6px; }
-  .card-meta { display: flex; gap: 12px; flex-wrap: wrap; }
-  .card-meta-item { font-size: 11px; color: var(--text3); }
-  .card-meta-item span { color: var(--text2); font-weight: 600; }
+  /* Issue rows */
+  .issue-header { display: grid; grid-template-columns: 1fr 110px 130px 32px; gap: 8px; margin-bottom: 4px; }
+  .issue-header span { font-size: 11px; color: var(--text2); font-weight: 600; letter-spacing: .03em; text-transform: uppercase; }
+  .issue-row { display: grid; grid-template-columns: 1fr 110px 130px 32px; gap: 8px; margin-bottom: 6px; align-items: center; }
+  .rm-btn { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 16px; line-height: 1; padding: 4px; border-radius: 4px; }
+  .rm-btn:hover { background: var(--red-bg); color: var(--red-txt); }
 
-  /* ===== SEARCH ===== */
-  .search-wrap { position: relative; margin-bottom: 14px; }
-  .search-wrap input {
-    width: 100%; padding: 12px 16px 12px 40px;
-    border: 1.5px solid var(--border); border-radius: 10px;
-    font-size: 15px; background: var(--surface); color: var(--text);
-    outline: none;
-  }
-  .search-wrap input:focus { border-color: var(--primary); }
-  .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 16px; color: var(--text3); pointer-events: none; }
+  /* Action bar */
+  .action-bar { display: flex; align-items: center; gap: 10px; background: var(--surface2); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 14px; border: 1px solid var(--border); }
+  .action-bar .sel-info { flex: 1; font-size: 12px; color: var(--text2); }
+  .action-bar .sel-info b { color: var(--text); }
 
-  /* ===== FILTER CHIPS ===== */
-  .filter-chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 14px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-  .filter-chips::-webkit-scrollbar { display: none; }
-  .chip {
-    flex-shrink: 0; padding: 6px 14px; border-radius: 20px;
-    font-size: 12px; font-weight: 600; cursor: pointer; border: none;
-    background: var(--surface); color: var(--text2); border: 1.5px solid var(--border);
-    white-space: nowrap;
-  }
-  .chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  /* Status & alerts */
+  .alert { padding: 8px 12px; border-radius: var(--radius); font-size: 12px; margin: 8px 0; display: none; }
+  .alert-ok { background: var(--green-bg); color: var(--green-txt); }
+  .alert-err { background: var(--red-bg); color: var(--red-txt); }
+  .alert-ing { background: var(--amber-bg); color: var(--amber-txt); }
+  .alert.show { display: block; }
 
-  /* ===== FAB ===== */
-  #fab-scan {
-    position: fixed; right: 20px; bottom: calc(var(--nav-height) + 16px);
-    width: 56px; height: 56px; border-radius: 50%;
-    background: var(--accent); color: #fff; border: none;
-    font-size: 26px; box-shadow: 0 4px 16px rgba(232,115,10,0.45);
-    cursor: pointer; z-index: 90;
-    display: flex; align-items: center; justify-content: center;
-    transition: transform 0.15s;
-  }
-  #fab-scan:active { transform: scale(0.93); }
+  /* GAS Setup */
+  .setup-step { display: flex; gap: 14px; margin-bottom: 20px; align-items: flex-start; }
+  .setup-num { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0; }
+  .setup-num.done { background: var(--green); }
+  .setup-body { flex: 1; }
+  .setup-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .setup-desc { font-size: 12px; color: var(--text2); line-height: 1.6; }
+  .url-row { display: flex; gap: 8px; margin-top: 10px; }
+  .url-row input { flex: 1; font-family: monospace; font-size: 12px; }
 
-  /* ===== SCAN PAGE ===== */
-  .scan-card {
-    background: var(--surface); border-radius: var(--radius); overflow: hidden;
-    box-shadow: var(--shadow); margin-bottom: 16px;
-  }
-  .scan-card-header {
-    background: var(--primary); color: #fff; padding: 14px 16px;
-    font-size: 14px; font-weight: 700;
-  }
-  .scan-card-body { padding: 16px; }
+  /* OCR */
+  .step-bar { display: flex; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); margin-bottom: 16px; }
+  .step-seg { flex: 1; padding: 8px; font-size: 12px; text-align: center; background: var(--surface2); color: var(--text2); border-right: 1px solid var(--border); }
+  .step-seg:last-child { border-right: none; }
+  .step-seg.active { background: var(--accent); color: #fff; font-weight: 500; }
+  .step-seg.done { background: var(--green-bg); color: var(--green-txt); }
+  .upload-zone { border: 2px dashed var(--border2); border-radius: var(--radius-lg); padding: 3rem 2rem; text-align: center; cursor: pointer; transition: all .15s; }
+  .upload-zone:hover { background: var(--blue-bg); border-color: var(--blue); }
+  .upload-zone input { display: none; }
+  .upload-icon { font-size: 36px; color: var(--text3); margin-bottom: 10px; }
+  .ai-result { background: var(--surface2); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 14px; }
+  .ai-field { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 13px; }
+  .ai-field-name { width: 90px; flex-shrink: 0; color: var(--text2); font-size: 12px; }
+  .ai-field input { flex: 1; }
+  .conf { font-size: 11px; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
+  .conf-high { background: var(--green-bg); color: var(--green-txt); }
+  .conf-low { background: var(--amber-bg); color: var(--amber-txt); }
 
-  .upload-zone {
-    border: 2px dashed var(--border); border-radius: 10px;
-    padding: 32px 16px; text-align: center; cursor: pointer;
-    background: var(--surface2);
-    transition: border-color 0.2s, background 0.2s;
-  }
-  .upload-zone:active, .upload-zone.drag { border-color: var(--primary); background: #e8f0ff; }
-  .upload-zone input[type=file] { display: none; }
-  .upload-icon { font-size: 48px; margin-bottom: 10px; }
-  .upload-text { font-size: 15px; font-weight: 700; color: var(--text2); margin-bottom: 6px; }
-  .upload-sub { font-size: 12px; color: var(--text3); }
-
-  #preview-img {
-    width: 100%; border-radius: 8px; max-height: 300px; object-fit: contain;
-    display: none; background: var(--surface2);
-  }
-
-  .btn {
-    display: block; width: 100%; padding: 14px; border-radius: 10px; border: none;
-    font-size: 15px; font-weight: 700; cursor: pointer; text-align: center;
-    transition: opacity 0.15s, transform 0.1s;
-  }
-  .btn:active { transform: scale(0.98); opacity: 0.9; }
-  .btn-primary { background: var(--primary); color: #fff; }
-  .btn-accent { background: var(--accent); color: #fff; }
-  .btn-outline { background: transparent; color: var(--primary); border: 2px solid var(--primary); }
-  .btn-danger { background: #c62828; color: #fff; }
-  .btn-sm { padding: 10px 16px; font-size: 13px; border-radius: 8px; display: inline-block; width: auto; }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  .step-indicator { display: flex; align-items: center; gap: 0; margin-bottom: 16px; }
-  .step { flex: 1; text-align: center; }
-  .step-num {
-    width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    font-size: 13px; font-weight: 700; margin: 0 auto 4px;
-    background: var(--border); color: var(--text3);
-  }
-  .step.active .step-num { background: var(--primary); color: #fff; }
-  .step.done .step-num { background: var(--success); color: #fff; }
-  .step-label { font-size: 10px; color: var(--text3); }
-  .step.active .step-label, .step.done .step-label { color: var(--text2); }
-  .step-line { flex: 0.5; height: 2px; background: var(--border); margin-bottom: 18px; }
-  .step-line.done { background: var(--success); }
-
-  /* ===== READ RESULT ===== */
-  .result-field { margin-bottom: 14px; }
-  .result-label { font-size: 11px; font-weight: 700; color: var(--text3); margin-bottom: 4px; letter-spacing: 0.06em; }
-  .result-input {
-    width: 100%; padding: 11px 13px; border: 1.5px solid var(--border); border-radius: 8px;
-    font-size: 14px; color: var(--text); background: var(--surface);
-    outline: none; font-family: inherit;
-  }
-  .result-input:focus { border-color: var(--primary); }
-  textarea.result-input { min-height: 80px; resize: vertical; }
-
-  .issues-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
-  .issues-table th { background: var(--surface2); padding: 8px 10px; text-align: left; font-size: 11px; color: var(--text3); border-bottom: 1px solid var(--border); }
-  .issues-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
-  .issues-table input, .issues-table select {
-    width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px;
-    font-size: 13px; background: var(--surface); color: var(--text); font-family: inherit;
-  }
-
-  /* ===== MODAL ===== */
-  .modal-overlay {
-    display: none; position: fixed; inset: 0; z-index: 200;
-    background: rgba(0,0,0,0.5); align-items: flex-end;
-  }
+  /* Modal */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 100; align-items: center; justify-content: center; }
   .modal-overlay.open { display: flex; }
-  .modal-sheet {
-    background: var(--surface); width: 100%; border-radius: 20px 20px 0 0;
-    max-height: 90vh; overflow-y: auto;
-    animation: slideUp 0.25s ease;
-  }
-  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-  .modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 12px auto 0; }
-  .modal-title { font-size: 17px; font-weight: 800; color: var(--text); padding: 16px 20px 12px; border-bottom: 1px solid var(--border); }
-  .modal-body { padding: 16px 20px 32px; }
-  .modal-actions { display: flex; gap: 10px; padding: 12px 20px 24px; border-top: 1px solid var(--border); }
+  .modal { background: var(--surface); border-radius: var(--radius-lg); padding: 24px; width: 480px; max-width: 90vw; box-shadow: 0 20px 60px rgba(0,0,0,.2); }
+  .modal h3 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .modal p { font-size: 13px; color: var(--text2); margin-bottom: 16px; }
+  .modal-preview { background: var(--surface2); border-radius: var(--radius); padding: 10px 12px; font-size: 12px; color: var(--text2); margin-bottom: 14px; line-height: 1.8; }
+  .modal-preview b { color: var(--text); }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 
-  /* ===== SETTINGS ===== */
-  .settings-section { background: var(--surface); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); margin-bottom: 16px; }
-  .settings-row {
-    display: flex; align-items: center; padding: 14px 16px;
-    border-bottom: 1px solid var(--border); gap: 12px;
-  }
-  .settings-row:last-child { border-bottom: none; }
-  .settings-row-icon { font-size: 20px; flex-shrink: 0; }
-  .settings-row-label { flex: 1; }
-  .settings-row-label strong { display: block; font-size: 14px; color: var(--text); }
-  .settings-row-label span { font-size: 12px; color: var(--text3); }
-  .settings-input {
-    width: 100%; padding: 11px 13px; border: 1.5px solid var(--border); border-radius: 8px;
-    font-size: 13px; color: var(--text); background: var(--surface2); font-family: inherit; outline: none;
-  }
-  .settings-input:focus { border-color: var(--primary); }
+  /* Note */
+  .note { background: var(--blue-bg); border-radius: var(--radius); padding: 8px 12px; font-size: 12px; color: var(--blue-txt); margin-bottom: 14px; }
 
-  /* ===== LOADING ===== */
-  .loading { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 14px; }
-  .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
-  @keyframes spin { to { transform: rotate(360deg); } }
+  /* Save bar */
+  .save-bar { display: flex; justify-content: flex-end; gap: 10px; align-items: center; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
 
-  /* ===== TOAST ===== */
-  #toast {
-    position: fixed; bottom: calc(var(--nav-height) + 80px); left: 50%; transform: translateX(-50%) translateY(20px);
-    background: #222; color: #fff; padding: 10px 20px; border-radius: 24px;
-    font-size: 13px; font-weight: 600; white-space: nowrap; z-index: 500;
-    opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s;
+  /* ===== スマホ対応 ===== */
+  @media (max-width: 680px) {
+    /* サイドバー非表示 → ボトムナビ */
+    .sidebar { display: none; }
+    .app { flex-direction: column; }
+    .main { padding-bottom: 64px; }
+    .topbar { padding: 0 14px; }
+    .topbar-title { font-size: 14px; }
+    .topbar-actions .btn { font-size: 11px; padding: 5px 10px; }
+    .content { padding: 14px 14px; }
+
+    /* ボトムナビ */
+    .bottom-nav { display: flex !important; }
+
+    /* メトリクスを2列に */
+    .metrics { grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+    .metric-value { font-size: 22px; }
+
+    /* テーブルをカード形式に */
+    .table-wrap table, .table-wrap thead { display: none; }
+    .prop-card { display: block !important; }
+
+    /* フォームを1列に */
+    .form-grid2, .form-grid3, .form-grid4 { grid-template-columns: 1fr; }
+    .issue-row { grid-template-columns: 1fr 1fr; gap: 6px; }
+    .issue-row input { grid-column: 1 / -1; }
+
+    /* モーダル */
+    .modal { padding: 16px; }
+
+    /* アップロードゾーン */
+    .upload-zone { padding: 2rem 1rem; }
   }
-  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-  #toast.success { background: var(--success); }
-  #toast.error { background: #c62828; }
-
-  /* ===== CSV IMPORT ===== */
-  .import-area { display: flex; gap: 10px; margin-bottom: 16px; }
-  .csv-label {
-    flex: 1; padding: 12px 16px; background: var(--surface); border: 1.5px dashed var(--border);
-    border-radius: 10px; font-size: 13px; color: var(--text3); text-align: center; cursor: pointer;
-    display: flex; align-items: center; justify-content: center; gap: 8px;
+  @media (min-width: 681px) {
+    .bottom-nav { display: none !important; }
+    .prop-card { display: none !important; }
   }
-  .csv-label:active { border-color: var(--primary); }
 
-  /* ===== EMPTY STATE ===== */
-  .empty-state { text-align: center; padding: 60px 20px; color: var(--text3); }
-  .empty-state-icon { font-size: 56px; margin-bottom: 12px; }
-  .empty-state p { font-size: 14px; }
-
-  /* ===== PC FALLBACK ===== */
-  @media (min-width: 640px) {
-    #main-content { max-width: 640px; margin: var(--header-height) auto 0; padding: 20px; }
-    .stats-grid { grid-template-columns: repeat(4, 1fr); }
+  /* ボトムナビ（PC版と同じダークカラー） */
+  .bottom-nav {
+    display: none;
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+    background: #1a1a18; border-top: 1px solid rgba(255,255,255,0.1);
+    height: 60px;
   }
+  .bottom-nav-items { display: flex; height: 100%; }
+  .bottom-nav-item {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.45); font-size: 10px; gap: 3px; cursor: pointer;
+    border: none; background: none; padding: 0;
+  }
+  .bottom-nav-item.active { color: #fff; }
+  .bottom-nav-item .bn-icon { font-size: 18px; line-height: 1; }
+
+  /* 物件カード（スマホ用） */
+  .prop-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 14px 16px; margin-bottom: 10px;
+  }
+  .prop-card-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .prop-card-name { font-size: 15px; font-weight: 600; }
+  .prop-card-body { font-size: 12px; color: var(--text2); line-height: 1.8; }
+  .prop-card-foot { display: flex; gap: 8px; margin-top: 10px; }
+  .prop-card-foot .btn { flex: 1; text-align: center; }
 </style>
 </head>
 <body>
+<div class="app">
 
-<!-- HEADER -->
-<header id="app-header">
-  <h1>📋 定期点検管理</h1>
-  <div id="header-right">
-    <div id="gas-dot"></div>
-    <span id="gas-label">未接続</span>
-    <button id="settings-btn" onclick="showPage('settings')">⚙️</button>
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <h1>定期点検<br>管理システム</h1>
+    <p>Inspection Manager v1.0</p>
   </div>
-</header>
-
-<!-- MAIN CONTENT -->
-<div id="main-content">
-
-  <!-- ===== DASHBOARD ===== -->
-  <div id="page-dashboard" class="page active">
-    <div class="stats-grid">
-      <div class="stat-card"><div class="stat-label">管理物件数</div><div class="stat-value" id="stat-total">0</div><div class="stat-sub">件</div></div>
-      <div class="stat-card accent"><div class="stat-label">今月の点検</div><div class="stat-value" id="stat-month">0</div><div class="stat-sub">件予定</div></div>
-      <div class="stat-card warning"><div class="stat-label">補修対応中</div><div class="stat-value" id="stat-repair">0</div><div class="stat-sub">件</div></div>
-      <div class="stat-card success"><div class="stat-label">完了</div><div class="stat-value" id="stat-done">0</div><div class="stat-sub">件</div></div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">メイン</div>
+    <div class="nav-item active" onclick="showScreen('dashboard',this)">
+      <span class="nav-icon">▦</span>ダッシュボード
     </div>
-    <div class="section-title">点検期限が近い物件</div>
-    <div id="upcoming-list"></div>
-  </div>
-
-  <!-- ===== PROPERTY LIST ===== -->
-  <div id="page-properties" class="page">
-    <div class="import-area">
-      <label class="csv-label" id="csv-label-main">
-        📂 CSVで取込
-        <input type="file" id="csv-input-main" accept=".csv" onchange="importCSV(this)">
-      </label>
-      <button class="btn btn-primary btn-sm" onclick="refreshFromGAS()">🔄 更新</button>
+    <div class="nav-item" onclick="showScreen('master',this)">
+      <span class="nav-icon">◫</span>物件マスタ
     </div>
-    <div class="search-wrap">
-      <span class="search-icon">🔍</span>
-      <input type="text" id="search-input" placeholder="施主名・住所で検索..." oninput="renderProperties()">
+    <div class="nav-section">点検業務</div>
+    <div class="nav-item" onclick="showScreen('inspection',this)">
+      <span class="nav-icon">✎</span>点検記録入力
     </div>
-    <div class="filter-chips" id="filter-chips">
-      <button class="chip active" data-filter="all" onclick="setFilter('all',this)">すべて</button>
-      <button class="chip" data-filter="未点検" onclick="setFilter('未点検',this)">未点検</button>
-      <button class="chip" data-filter="点検予定" onclick="setFilter('点検予定',this)">点検予定</button>
-      <button class="chip" data-filter="補修対応中" onclick="setFilter('補修対応中',this)">補修対応中</button>
-      <button class="chip" data-filter="完了" onclick="setFilter('完了',this)">完了</button>
+    <div class="nav-item" onclick="showScreen('ocr',this)">
+      <span class="nav-icon">⊡</span>手書き読み取り
     </div>
-    <div id="properties-list"></div>
-  </div>
-
-  <!-- ===== SCAN PAGE ===== -->
-  <div id="page-scan" class="page">
-    <div class="step-indicator">
-      <div class="step active" id="step1"><div class="step-num">1</div><div class="step-label">撮影・選択</div></div>
-      <div class="step-line" id="line1"></div>
-      <div class="step" id="step2"><div class="step-num">2</div><div class="step-label">AI読み取り</div></div>
-      <div class="step-line" id="line2"></div>
-      <div class="step" id="step3"><div class="step-num">3</div><div class="step-label">確認・登録</div></div>
+    <div class="nav-section">設定</div>
+    <div class="nav-item" onclick="showScreen('gas',this)">
+      <span class="nav-icon">⚙</span>GAS連携設定
     </div>
-
-    <!-- Step 1: Upload -->
-    <div id="scan-step1">
-      <div class="scan-card">
-        <div class="scan-card-header">📸 手書きフォームを撮影・選択</div>
-        <div class="scan-card-body">
-          <label class="upload-zone" id="upload-zone" for="photo-input">
-            <div class="upload-icon">📷</div>
-            <div class="upload-text">タップして写真を選択</div>
-            <div class="upload-sub">カメラ撮影・ライブラリから選択できます</div>
-            <input type="file" id="photo-input" accept="image/*" capture="environment" onchange="onPhotoSelected(this)">
-          </label>
-          <img id="preview-img" alt="プレビュー">
-        </div>
-      </div>
-      <button class="btn btn-accent" id="btn-analyze" onclick="startAnalysis()" disabled>🤖 AI読み取り開始</button>
-    </div>
-
-    <!-- Step 2: Analyzing -->
-    <div id="scan-step2" style="display:none">
-      <div class="scan-card">
-        <div class="scan-card-header">🤖 AI読み取り中...</div>
-        <div class="scan-card-body">
-          <div class="loading">
-            <div class="spinner"></div>
-            手書き文字を解析しています<br>少々お待ちください
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Step 3: Results -->
-    <div id="scan-step3" style="display:none">
-      <div class="scan-card">
-        <div class="scan-card-header">✅ 読み取り結果（修正可能）</div>
-        <div class="scan-card-body">
-          <div class="result-field"><div class="result-label">施主氏名</div><input class="result-input" id="r-name" type="text"></div>
-          <div class="result-field"><div class="result-label">現場ID</div><input class="result-input" id="r-id" type="text"></div>
-          <div class="result-field"><div class="result-label">点検実施日</div><input class="result-input" id="r-date" type="date"></div>
-          <div class="result-field"><div class="result-label">担当者</div><input class="result-input" id="r-staff" type="text"></div>
-          <div class="result-field">
-            <div class="result-label">指摘事項</div>
-            <div id="issues-container"></div>
-            <button class="btn btn-outline btn-sm" style="margin-top:8px" onclick="addIssueRow()">＋ 行を追加</button>
-          </div>
-          <div class="result-field"><div class="result-label">備考</div><textarea class="result-input" id="r-note" rows="3"></textarea></div>
-        </div>
-      </div>
-      <div style="display:flex;gap:10px;margin-bottom:12px">
-        <button class="btn btn-outline" onclick="resetScan()" style="flex:1">やり直す</button>
-        <button class="btn btn-primary" onclick="saveRecord()" style="flex:2">💾 点検記録を保存</button>
-      </div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="gas-status">
+      <div class="gas-dot" id="sidebar-dot"></div>
+      <span id="sidebar-gas-label">GAS未接続</span>
     </div>
   </div>
-
-  <!-- ===== SETTINGS ===== -->
-  <div id="page-settings" class="page">
-    <div class="settings-section">
-      <div class="settings-row">
-        <div class="settings-row-icon">🔗</div>
-        <div class="settings-row-label">
-          <strong>GAS URL</strong>
-          <span>Google Apps ScriptのウェブアプリURL</span>
-        </div>
-      </div>
-      <div style="padding:12px 16px">
-        <input class="settings-input" id="gas-url-input" type="url" placeholder="https://script.google.com/macros/s/...">
-      </div>
-      <div style="padding:0 16px 16px;display:flex;gap:8px">
-        <button class="btn btn-primary btn-sm" onclick="saveGASUrl()">保存</button>
-        <button class="btn btn-outline btn-sm" onclick="testGAS()">疎通確認</button>
-        <button class="btn btn-outline btn-sm" onclick="initSheets()">シート初期化</button>
-      </div>
-    </div>
-    <div class="settings-section">
-      <div class="settings-row" onclick="importCSVFromSettings()">
-        <div class="settings-row-icon">📂</div>
-        <div class="settings-row-label"><strong>CSVで物件を取込</strong><span>外部システムからエクスポートしたCSV</span></div>
-        <span>›</span>
-        <input type="file" id="csv-input-settings" accept=".csv" style="display:none" onchange="importCSV(this)">
-      </div>
-      <div class="settings-row" onclick="exportToGAS()">
-        <div class="settings-row-icon">☁️</div>
-        <div class="settings-row-label"><strong>スプレッドシートへ書き出し</strong><span>全データをGASに送信</span></div>
-        <span>›</span>
-      </div>
-      <div class="settings-row" onclick="refreshFromGAS()">
-        <div class="settings-row-icon">🔄</div>
-        <div class="settings-row-label"><strong>GASからデータ読み込み</strong><span>最新データに更新</span></div>
-        <span>›</span>
-      </div>
-    </div>
-    <div class="settings-section">
-      <div class="settings-row">
-        <div class="settings-row-icon">ℹ️</div>
-        <div class="settings-row-label"><strong>バージョン</strong><span>定期点検管理 v2.0 (モバイル対応)</span></div>
-      </div>
-    </div>
-  </div>
-
 </div>
 
-<!-- BOTTOM NAV -->
-<nav id="bottom-nav">
-  <button class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard">
-    <span class="nav-icon">🏠</span>ダッシュボード
-  </button>
-  <button class="nav-item" onclick="showPage('properties')" id="nav-properties">
-    <span class="nav-icon">🏘️</span>物件一覧
-  </button>
-  <button class="nav-item" onclick="showPage('scan')" id="nav-scan">
-    <span class="nav-icon">📷</span>手書き読取
-  </button>
-  <button class="nav-item" onclick="showPage('settings')" id="nav-settings">
-    <span class="nav-icon">⚙️</span>設定
-  </button>
+<!-- Bottom Nav（スマホ用） -->
+<nav class="bottom-nav">
+  <div class="bottom-nav-items">
+    <button class="bottom-nav-item active" onclick="showScreen('dashboard',this)" data-screen="dashboard">
+      <span class="bn-icon">▦</span><span>一覧</span>
+    </button>
+    <button class="bottom-nav-item" onclick="showScreen('inspection',this)" data-screen="inspection">
+      <span class="bn-icon">✎</span><span>点検入力</span>
+    </button>
+    <button class="bottom-nav-item" onclick="showScreen('ocr',this)" data-screen="ocr">
+      <span class="bn-icon">⊡</span><span>手書き読取</span>
+    </button>
+    <button class="bottom-nav-item" onclick="showScreen('master',this)" data-screen="master">
+      <span class="bn-icon">◫</span><span>物件</span>
+    </button>
+    <button class="bottom-nav-item" onclick="showScreen('gas',this)" data-screen="gas">
+      <span class="bn-icon">⚙</span><span>設定</span>
+    </button>
+  </div>
 </nav>
 
-<!-- FAB -->
-<button id="fab-scan" onclick="showPage('scan')" title="手書き読み取り">📷</button>
+<!-- Main -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="topbar-title">ダッシュボード</div>
+    <div class="topbar-actions">
+      <label class="btn btn-sm" style="cursor:pointer;">
+        CSVで取込
+        <input type="file" accept=".csv" style="display:none;" onchange="loadCSV(this)">
+      </label>
+      <button class="btn btn-sm btn-primary" onclick="showScreen('inspection',null)">+ 点検記録を入力</button>
+    </div>
+  </div>
 
-<!-- PROPERTY DETAIL MODAL -->
-<div class="modal-overlay" id="prop-modal">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div>
-    <div class="modal-title" id="prop-modal-title">物件詳細</div>
-    <div class="modal-body" id="prop-modal-body"></div>
-    <div class="modal-actions">
-      <button class="btn btn-danger btn-sm" onclick="deleteProp()">削除</button>
-      <button class="btn btn-primary" style="flex:1" onclick="savePropEdit()">保存</button>
+  <div class="content">
+
+    <!-- ダッシュボード -->
+    <div id="screen-dashboard" class="screen active">
+      <div class="metrics">
+        <div class="metric"><div class="metric-label">管理物件数</div><div class="metric-value" id="m-total">0</div><div class="metric-sub">棟</div></div>
+        <div class="metric"><div class="metric-label">未実施</div><div class="metric-value" id="m-pending">0</div><div class="metric-sub">件</div></div>
+        <div class="metric"><div class="metric-label">補修対応中</div><div class="metric-value" id="m-repair">0</div><div class="metric-sub">件</div></div>
+        <div class="metric"><div class="metric-label">完了</div><div class="metric-value" id="m-done">0</div><div class="metric-sub">件</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">物件一覧</div>
+          <div class="btn-group">
+            <select id="filter-status" onchange="renderTable()" style="font-size:12px;padding:5px 10px;width:auto;">
+              <option value="">全ステータス</option>
+              <option value="未実施">未実施</option>
+              <option value="補修対応中">補修対応中</option>
+              <option value="完了">完了</option>
+              <option value="引渡日未入力">引渡日未入力</option>
+            </select>
+          </div>
+        </div>
+        <div class="action-bar">
+          <span class="sel-info" id="sel-info">行をクリックして選択（複数可）</span>
+          <button class="btn btn-sm" id="btn-blank" disabled onclick="exportForms('blank')">白紙フォーム出力</button>
+          <button class="btn btn-sm btn-primary" id="btn-pre" disabled onclick="openExportModal()">印字フォーム出力</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:28px;"><input type="checkbox" id="chk-all" onchange="toggleAll(this)"></th>
+                <th>施主氏名</th><th>住所</th><th>引渡日</th><th>点検期限</th><th>担当者</th><th>ステータス</th><th style="width:100px;"></th>
+              </tr>
+            </thead>
+            <tbody id="prop-tbody"></tbody>
+          </table>
+        </div>
+        <!-- スマホ用カード表示 -->
+        <div id="prop-cards" class="prop-card" style="display:none;"></div>
+        <div id="csv-msg" class="alert" style="margin-top:10px;"></div>
+      </div>
+    </div>
+
+    <!-- 物件マスタ -->
+    <div id="screen-master" class="screen">
+      <div class="note">CSVを取り込むと物件が登録されます。引渡日から点検期限を自動計算します。</div>
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">登録物件（<span id="master-cnt">0</span>件）</div>
+          <label class="btn" style="cursor:pointer;">CSVで取込<input type="file" accept=".csv" style="display:none;" onchange="loadCSV(this)"></label>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>現場ID</th><th>施主氏名</th><th>住所</th><th>引渡日</th><th>点検期限</th><th>点検種別</th><th>担当者</th><th>ステータス</th></tr>
+            </thead>
+            <tbody id="master-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 点検記録入力 -->
+    <div id="screen-inspection" class="screen">
+      <div class="card">
+        <div class="sec-label">基本情報</div>
+        <div class="form-grid2">
+          <div class="field"><label>物件選択 *</label>
+            <select id="sel-prop" onchange="fillProp(this)">
+              <option value="">— 選択してください —</option>
+            </select>
+          </div>
+          <div class="field"><label>点検種別 *</label>
+            <select id="sel-type"><option>2年点検・短期保証</option><option>1年点検</option><option>5年点検</option><option>10年点検</option></select>
+          </div>
+        </div>
+        <div class="form-grid3">
+          <div class="field"><label>施主氏名</label><input id="f-owner" type="text" readonly></div>
+          <div class="field"><label>住所</label><input id="f-addr" type="text" readonly></div>
+          <div class="field"><label>引渡日</label><input id="f-hiki" type="text" readonly></div>
+        </div>
+        <div class="form-grid3">
+          <div class="field"><label>実検日 *</label><input id="f-date" type="date"></div>
+          <div class="field"><label>担当者</label>
+            <select id="f-staff"><option>秋山 忠夫</option><option>山路 和信</option><option>山田</option><option>小泉</option></select>
+          </div>
+          <div class="field"><label>天候</label>
+            <select id="f-weather"><option>晴れ</option><option>曇り</option><option>雨</option></select>
+          </div>
+        </div>
+
+        <div class="sec-label">指摘事項</div>
+        <div class="issue-header">
+          <span>内容</span><span>補修要否</span><span>対応状況</span><span></span>
+        </div>
+        <div id="issues">
+          <div class="issue-row">
+            <input type="text" placeholder="例：玄関ドア アテ枠にすき間">
+            <select><option>補修要</option><option>経過観察</option><option>対応不要</option></select>
+            <select><option>未対応</option><option>業者手配中</option><option>補修完了</option></select>
+            <button class="rm-btn" onclick="rmIssue(this)">×</button>
+          </div>
+        </div>
+        <button class="btn btn-sm" onclick="addIssue()" style="margin-top:6px;">+ 指摘事項を追加</button>
+
+        <div class="sec-label">補修・スケジュール</div>
+        <div class="form-grid4">
+          <div class="field"><label>補修予定日</label><input id="f-repair" type="date"></div>
+          <div class="field"><label>着工予定日</label><input id="f-start" type="date"></div>
+          <div class="field"><label>完工予定日</label><input id="f-end" type="date"></div>
+          <div class="field"><label>補修完了日</label><input id="f-done" type="date"></div>
+        </div>
+        <div class="form-grid2">
+          <div class="field"><label>点検ステータス</label>
+            <select id="f-status"><option>未実施</option><option>実施済（補修なし）</option><option>補修対応中</option><option>完了</option></select>
+          </div>
+          <div class="field"><label>備考・特記事項</label><textarea id="f-memo" placeholder="業者連絡事項・社内メモなど"></textarea></div>
+        </div>
+
+        <div class="save-bar">
+          <div id="save-alert" class="alert" style="flex:1;margin:0;"></div>
+          <button class="btn" onclick="saveDraft()">下書き保存</button>
+          <button class="btn btn-primary" id="save-btn" onclick="saveInspection()">スプレッドシートへ登録</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 手書き読み取り -->
+    <div id="screen-ocr" class="screen">
+      <div id="ocr-s1">
+        <div class="step-bar">
+          <div class="step-seg active">1. 画像アップロード</div>
+          <div class="step-seg">2. AI読み取り確認</div>
+          <div class="step-seg">3. 点検記録へ転記</div>
+        </div>
+        <label class="upload-zone">
+          <input type="file" accept="image/*,application/pdf" onchange="handleUpload(this)">
+          <div class="upload-icon">↑</div>
+          <p style="font-size:14px;font-weight:500;margin-bottom:4px;">写真またはPDFをアップロード</p>
+          <p style="font-size:12px;color:var(--text2);">スマホ撮影・スキャンどちらも対応</p>
+        </label>
+      </div>
+      <div id="ocr-s2" style="display:none;">
+        <div class="step-bar">
+          <div class="step-seg done">1. 完了</div>
+          <div class="step-seg active">2. AI読み取り確認</div>
+          <div class="step-seg">3. 点検記録へ転記</div>
+        </div>
+        <div id="ocr-proc" style="text-align:center;padding:3rem;color:var(--text2);">AIが手書き文字を解析中...</div>
+        <div id="ocr-res" style="display:none;">
+          <img id="ocr-img" style="max-width:100%;max-height:200px;border-radius:var(--radius);border:1px solid var(--border);display:block;margin:0 auto 14px;">
+          <div class="ai-result">
+            <div style="font-size:11px;color:var(--text2);font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px;">AI読み取り結果（修正可能）</div>
+            <div class="ai-field"><span class="ai-field-name">施主氏名</span><input type="text" id="ocr-owner"><span id="c-owner" class="conf"></span></div>
+            <div class="ai-field"><span class="ai-field-name">現場ID</span><input type="text" id="ocr-pid"><span id="c-pid" class="conf"></span></div>
+            <div class="ai-field"><span class="ai-field-name">実検日</span><input type="text" id="ocr-date"><span id="c-date" class="conf"></span></div>
+            <div class="ai-field"><span class="ai-field-name">担当者</span><input type="text" id="ocr-staff"><span id="c-staff" class="conf"></span></div>
+            <div class="ai-field"><span class="ai-field-name">天候</span><input type="text" id="ocr-weather"></div>
+            <div class="ai-field" style="align-items:flex-start;">
+              <span class="ai-field-name" style="margin-top:6px;">指摘事項</span>
+              <textarea id="ocr-issues" style="min-height:72px;flex:1;"></textarea>
+            </div>
+            <div class="ai-field"><span class="ai-field-name">補修可能日</span><input type="text" id="ocr-repair"></div>
+            <div class="ai-field"><span class="ai-field-name">備考</span><input type="text" id="ocr-memo"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <button class="btn" onclick="resetOCR()">やり直す</button>
+            <button class="btn btn-primary" onclick="transferOCR()">点検記録へ転記する</button>
+          </div>
+        </div>
+      </div>
+      <div id="ocr-s3" style="display:none;">
+        <div class="step-bar">
+          <div class="step-seg done">1. 完了</div>
+          <div class="step-seg done">2. 完了</div>
+          <div class="step-seg active">3. 転記完了</div>
+        </div>
+        <div style="text-align:center;padding:3rem;">
+          <p style="font-size:16px;font-weight:600;margin-bottom:8px;">転記が完了しました</p>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:20px;">点検記録入力画面で内容を確認・修正してから登録してください。</p>
+          <button class="btn btn-primary" onclick="showScreen('inspection',null)">点検記録入力へ移動</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- GAS設定 -->
+    <div id="screen-gas" class="screen">
+      <div class="card">
+        <div class="card-title" style="margin-bottom:16px;">GAS連携設定</div>
+        <div class="setup-step">
+          <div class="setup-num">1</div>
+          <div class="setup-body">
+            <div class="setup-title">Googleスプレッドシートを新規作成</div>
+            <div class="setup-desc">Googleドライブ → 「+新規」→「Googleスプレッドシート」</div>
+          </div>
+        </div>
+        <div class="setup-step">
+          <div class="setup-num">2</div>
+          <div class="setup-body">
+            <div class="setup-title">Apps Scriptを開く</div>
+            <div class="setup-desc">スプレッドシートのメニュー → 「拡張機能」→「Apps Script」</div>
+          </div>
+        </div>
+        <div class="setup-step">
+          <div class="setup-num">3</div>
+          <div class="setup-body">
+            <div class="setup-title">GASコードを貼り付けて保存</div>
+            <div class="setup-desc">teiten_GAS.js の内容を全文コピーして貼り付け → Ctrl+S で保存</div>
+          </div>
+        </div>
+        <div class="setup-step">
+          <div class="setup-num">4</div>
+          <div class="setup-body">
+            <div class="setup-title">ウェブアプリとしてデプロイ</div>
+            <div class="setup-desc">「デプロイ」→「新しいデプロイ」→ 種類：ウェブアプリ　／　実行：自分　／　アクセス：<strong>全員</strong></div>
+          </div>
+        </div>
+        <div class="setup-step">
+          <div class="setup-num">5</div>
+          <div class="setup-body">
+            <div class="setup-title">発行されたURLをここに貼り付ける</div>
+            <div class="url-row">
+              <input type="text" id="gas-url-input" placeholder="https://script.google.com/macros/s/.../exec">
+              <button class="btn" onclick="saveGasUrl()">保存</button>
+              <button class="btn" onclick="testConn()">疎通確認</button>
+            </div>
+            <div id="conn-alert" class="alert" style="margin-top:8px;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:8px;">シート初期化（初回のみ）</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">スプレッドシートに「物件マスタ」「点検記録」「指摘事項」「操作ログ」の4シートを自動作成します。</p>
+        <button class="btn btn-primary" onclick="initSheets()">シートを初期化する</button>
+        <div id="init-alert" class="alert" style="margin-top:8px;"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal" style="max-width:560px;">
+    <h3>物件情報を編集</h3>
+    <p>内容を修正して保存してください。GAS接続中はスプレッドシートにも反映されます。</p>
+    <div class="form-grid2" style="margin-bottom:12px;">
+      <div class="field"><label>現場ID</label><input id="e-id" type="text" readonly style="background:var(--surface2);color:var(--text2);"></div>
+      <div class="field"><label>点検種別</label>
+        <select id="e-type"><option>2年点検・短期保証</option><option>1年点検</option><option>5年点検</option><option>10年点検</option></select>
+      </div>
+    </div>
+    <div class="form-grid2" style="margin-bottom:12px;">
+      <div class="field"><label>施主氏名 *</label><input id="e-owner" type="text"></div>
+      <div class="field"><label>担当者</label>
+        <select id="e-staff"><option>秋山 忠夫</option><option>山路 和信</option><option>山田</option><option>小泉</option></select>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:12px;"><label>住所</label><input id="e-addr" type="text"></div>
+    <div class="form-grid2" style="margin-bottom:12px;">
+      <div class="field"><label>引渡日</label><input id="e-delivery" type="date"></div>
+      <div class="field"><label>点検期限（自動計算）</label><input id="e-scheduled" type="text" readonly style="background:var(--surface2);color:var(--text2);"></div>
+    </div>
+    <div class="field" style="margin-bottom:12px;"><label>点検ステータス</label>
+      <select id="e-status"><option>未実施</option><option>実施済（補修なし）</option><option>補修対応中</option><option>完了</option><option>引渡日未入力</option></select>
+    </div>
+    <div id="edit-alert" class="alert" style="margin-bottom:8px;"></div>
+    <div class="modal-footer" style="justify-content:space-between;">
+      <button class="btn" style="color:var(--red-txt);border-color:var(--red-txt);" onclick="deleteProperty()">削除</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="closeEditModal()">キャンセル</button>
+        <button class="btn btn-primary" onclick="saveEdit()">保存</button>
+      </div>
     </div>
   </div>
 </div>
-<div id="prop-modal-bg" style="position:fixed;inset:0;z-index:199;display:none;background:rgba(0,0,0,0.5)" onclick="closePropModal()"></div>
 
-<!-- TOAST -->
-<div id="toast"></div>
+<!-- Export Modal -->
+<div class="modal-overlay" id="export-modal">
+  <div class="modal">
+    <h3>印字フォームを出力</h3>
+    <p>選択した物件の情報を印字したA4フォームをPDFで生成します。</p>
+    <div class="modal-preview" id="modal-preview"></div>
+    <div class="field"><label>出力方式</label>
+      <select id="export-type">
+        <option value="bulk">まとめて印刷（複数ページ）</option>
+        <option value="individual">1件ずつ別タブで印刷</option>
+      </select>
+    </div>
+    <p style="font-size:11px;color:var(--text2);margin-top:6px;">印刷ダイアログで「PDFとして保存」を選ぶとPDFで保存できます。</p>
+    <div id="export-alert" class="alert" style="margin-top:8px;"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="doExport()">PDFを生成・ダウンロード</button>
+    </div>
+  </div>
+</div>
 
 <script>
-// ===== DATA =====
+// ====== STATE ======
+let gasUrl = localStorage.getItem('gasUrl') || '';
 let properties = [];
-let records = [];
-let gasUrl = '';
-let currentFilter = 'all';
-let editingPropId = null;
+let selected = new Set();
+let gasConnected = false;
 
-const STATUS_MAP = {
-  '未点検': { cls: 'status-pending', badge: 'badge-pending' },
-  '点検予定': { cls: 'status-scheduled', badge: 'badge-scheduled' },
-  '補修対応中': { cls: 'status-repair', badge: 'badge-repair' },
-  '完了': { cls: 'status-done', badge: 'badge-done' },
-};
+if(gasUrl) document.getElementById('gas-url-input').value = gasUrl;
 
-// ===== INIT =====
-window.addEventListener('DOMContentLoaded', () => {
-  gasUrl = localStorage.getItem('gasUrl') || '';
-  if (gasUrl) {
-    document.getElementById('gas-url-input').value = gasUrl;
-    updateGasDot('connecting');
-    loadFromGAS();
+// ---- 起動時：GASから読み込み、未接続時はlocalStorageにフォールバック ----
+async function initApp(){
+  if(gasUrl){
+    document.getElementById('prop-tbody').innerHTML =
+      '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text2);">GASからデータを読み込み中...</td></tr>';
+    const res = await postGAS({action:'get_all_data'});
+    if(res && res.status==='ok' && Array.isArray(res.properties)){
+      properties = res.properties;
+      gasConnected = true;
+      localStorage.setItem('properties', JSON.stringify(properties));
+      updateGasIndicator(true);
+      renderTable(); renderMaster();
+      return;
+    }
+  }
+  // GAS未接続 or エラー → localStorageから読み込み
+  properties = JSON.parse(localStorage.getItem('properties') || '[]');
+  updateGasIndicator(false);
+  renderTable(); renderMaster();
+}
+
+// ====== NAVIGATION ======
+const TITLES = {dashboard:'ダッシュボード',master:'物件マスタ',inspection:'点検記録入力',ocr:'手書き読み取り',gas:'GAS連携設定'};
+function showScreen(id, navEl){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+id).classList.add('active');
+  // サイドバーナビ
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  if(navEl && navEl.classList.contains('nav-item')) navEl.classList.add('active');
+  else document.querySelectorAll('.nav-item').forEach(n=>{ if(n.textContent.trim().includes(TITLES[id]?.slice(0,3))) n.classList.add('active'); });
+  // ボトムナビ
+  document.querySelectorAll('.bottom-nav-item').forEach(b=>b.classList.toggle('active', b.dataset.screen===id));
+  document.getElementById('topbar-title').textContent = TITLES[id]||'';
+  if(id==='dashboard') renderTable();
+  if(id==='master') renderMaster();
+  if(id==='inspection') refreshPropSelect();
+}
+
+// ====== PROPERTIES ======
+function saveProps(){ localStorage.setItem('properties', JSON.stringify(properties)); }
+
+function statusBadge(s){
+  const m={'未実施':'badge-amber','補修対応中':'badge-blue','完了':'badge-green','引渡日未入力':'badge-gray'};
+  return `<span class="badge ${m[s]||'badge-gray'}">${s||'—'}</span>`;
+}
+
+function renderTable(){
+  const f = document.getElementById('filter-status').value;
+  const data = f ? properties.filter(p=>p.status===f) : properties;
+
+  // PC用テーブル
+  document.getElementById('prop-tbody').innerHTML = data.map(p=>`
+    <tr class="clickable ${selected.has(p.id)?'selected':''}" onclick="toggleRow('${p.id}',event)">
+      <td><input type="checkbox" ${selected.has(p.id)?'checked':''} onclick="this.checked?selAdd('${p.id}'):selDel('${p.id}')"></td>
+      <td style="font-weight:500;">${p.owner||'—'}</td>
+      <td style="font-size:12px;color:var(--text2);">${p.addr||'—'}</td>
+      <td style="font-size:12px;">${p.delivery||'—'}</td>
+      <td style="font-size:12px;">${p.scheduled||'<span style="color:var(--text3)">未設定</span>'}</td>
+      <td style="font-size:12px;">${p.staff||'—'}</td>
+      <td>${statusBadge(p.status)}</td>
+      <td style="display:flex;gap:4px;"><button class="btn btn-sm" onclick="openEdit('${p.id}',event)">編集</button><button class="btn btn-sm" onclick="quickExport('${p.id}',event)">出力</button></td>
+    </tr>`).join('');
+
+  // スマホ用カード
+  document.getElementById('prop-cards').innerHTML = data.map(p=>`
+    <div class="prop-card">
+      <div class="prop-card-head">
+        <div class="prop-card-name">${p.owner||'—'}</div>
+        ${statusBadge(p.status)}
+      </div>
+      <div class="prop-card-body">
+        <div>${p.addr||'—'}</div>
+        <div>引渡日: ${p.delivery||'—'}　期限: ${p.scheduled||'未設定'}</div>
+        <div>担当: ${p.staff||'—'}　${p.type||''}</div>
+      </div>
+      <div class="prop-card-foot">
+        <button class="btn btn-sm" onclick="openEdit('${p.id}',event)">編集</button>
+        <button class="btn btn-sm" onclick="quickExport('${p.id}',event)">フォーム出力</button>
+      </div>
+    </div>`).join('');
+
+  updateMetrics();
+}
+
+function renderMaster(){
+  document.getElementById('master-cnt').textContent = properties.length;
+  document.getElementById('master-tbody').innerHTML = properties.map(p=>`
+    <tr>
+      <td style="font-size:12px;color:var(--text2);">${p.id||'—'}</td>
+      <td style="font-weight:500;">${p.owner||'—'}</td>
+      <td style="font-size:12px;color:var(--text2);">${p.addr||'—'}</td>
+      <td style="font-size:12px;">${p.delivery||'—'}</td>
+      <td style="font-size:12px;">${p.scheduled||'—'}</td>
+      <td style="font-size:12px;">${p.type||'—'}</td>
+      <td style="font-size:12px;">${p.staff||'—'}</td>
+      <td>${statusBadge(p.status)}</td>
+    </tr>`).join('');
+}
+
+function updateMetrics(){
+  document.getElementById('m-total').textContent = properties.length;
+  document.getElementById('m-pending').textContent = properties.filter(p=>p.status==='未実施').length;
+  document.getElementById('m-repair').textContent = properties.filter(p=>p.status==='補修対応中').length;
+  document.getElementById('m-done').textContent = properties.filter(p=>p.status==='完了').length;
+}
+
+function refreshPropSelect(){
+  const sel = document.getElementById('sel-prop');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— 選択してください —</option>' +
+    properties.map(p=>`<option value="${p.id}">${p.owner}（${p.addr.slice(0,10)}）</option>`).join('');
+  if(cur) sel.value = cur;
+}
+
+function selAdd(id){ selected.add(id); updateSel(); }
+function selDel(id){ selected.delete(id); updateSel(); }
+function toggleRow(id, e){ if(e.target.tagName==='INPUT'||e.target.tagName==='BUTTON') return; selected.has(id)?selected.delete(id):selected.add(id); updateSel(); renderTable(); }
+function toggleAll(chk){ document.querySelectorAll('#prop-tbody input[type=checkbox]').forEach(c=>{ chk.checked?selected.add(c.closest('tr').querySelector('button').onclick.toString().match(/'(\w+)'/)?.[1]||''):selected.clear(); }); updateSel(); renderTable(); }
+function updateSel(){
+  const n=selected.size;
+  document.getElementById('sel-info').innerHTML = n>0 ? `<b>${n}件</b>選択中` : '行をクリックして選択（複数可）';
+  document.getElementById('btn-blank').disabled = n===0;
+  document.getElementById('btn-pre').disabled = n===0;
+}
+
+// ====== CSV IMPORT ======
+function loadCSV(input){
+  const file=input.files[0]; if(!file) return;
+  const msgEl=document.getElementById('csv-msg');
+  showAlert(msgEl,'読み込み中...','ing');
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const text=new TextDecoder('shift-jis').decode(new Uint8Array(e.target.result));
+      const lines=text.split('\n').filter(l=>l.trim());
+      const rows=lines.slice(1).map(l=>{
+        const cols=[];let cur='',inQ=false;
+        for(const ch of l){if(ch==='"'){inQ=!inQ;}else if(ch===','&&!inQ){cols.push(cur.trim());cur='';}else{cur+=ch;}}
+        cols.push(cur.trim()); return cols;
+      }).filter(r=>r[0]&&r[0].trim());
+      const newProps=rows.map(r=>{
+        const delivery=r[17]||'';
+        let scheduled='';
+        if(delivery && r[3]?.includes('2年')){
+          const d=new Date(delivery); d.setFullYear(d.getFullYear()+2);
+          scheduled=`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+        } else if(delivery && r[3]?.includes('1年')){
+          const d=new Date(delivery); d.setFullYear(d.getFullYear()+1);
+          scheduled=`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+        } else if(delivery && r[3]?.includes('5年')){
+          const d=new Date(delivery); d.setFullYear(d.getFullYear()+5);
+          scheduled=`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+        }
+        return {id:r[0],owner:r[2],addr:[r[7],r[8],r[9]].filter(Boolean).join(''),delivery,scheduled,staff:r[13]||'',type:r[3]||'',status:delivery?'未実施':'引渡日未入力'};
+      });
+
+      let added=0, updated=0, skipped=0;
+      newProps.forEach(n=>{
+        const i=properties.findIndex(p=>p.id===n.id);
+        if(i < 0){
+          // 新規物件 → そのまま追加
+          properties.push(n);
+          added++;
+        } else {
+          const existing=properties[i];
+          // アプリで手動編集した項目はCSVで上書きしない
+          // ルール：既存の値が空でない場合はアプリ側の値を優先
+          properties[i] = {
+            id: n.id,
+            owner:    existing.owner    || n.owner,
+            addr:     existing.addr     || n.addr,
+            type:     existing.type     || n.type,
+            staff:    existing.staff    || n.staff,
+            // 引渡日・点検期限：既存に値があれば保持、なければCSVの値を使用
+            delivery: existing.delivery || n.delivery,
+            scheduled:existing.scheduled|| n.scheduled,
+            // ステータスはアプリ側を常に優先（点検進捗はアプリで管理）
+            status:   existing.status !== '未実施' && existing.status !== '引渡日未入力'
+                        ? existing.status
+                        : (n.delivery ? '未実施' : '引渡日未入力'),
+          };
+          // 引渡日が今回のCSVで初めて入った場合は点検期限も再計算
+          if(!existing.delivery && n.delivery && !existing.scheduled){
+            properties[i].scheduled = n.scheduled;
+          }
+          updated++;
+        }
+      });
+
+      saveProps(); renderTable(); renderMaster();
+      showAlert(msgEl,`✓ 取込完了：新規 ${added}件、更新 ${updated}件（手動編集済み項目は保持）`,'ok');
+      if(gasUrl) properties.filter(p=>newProps.find(n=>n.id===p.id)).forEach(p=>postGAS({action:'save_property',payload:{propertyId:p.id,ownerName:p.owner,address:p.addr,deliveryDate:p.delivery,staff:p.staff,inspectionType:p.type,scheduledDate:p.scheduled,status:p.status}}));
+    }catch(err){ showAlert(msgEl,'読み込みエラー: '+err.message,'err'); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ====== INSPECTION FORM ======
+function fillProp(sel){
+  const p=properties.find(x=>x.id===sel.value)||{};
+  document.getElementById('f-owner').value=p.owner||'';
+  document.getElementById('f-addr').value=p.addr||'';
+  document.getElementById('f-hiki').value=p.delivery||'';
+  if(p.staff) document.getElementById('f-staff').value=p.staff;
+  if(p.type) document.getElementById('sel-type').value=p.type;
+}
+function addIssue(){
+  const d=document.createElement('div'); d.className='issue-row';
+  d.innerHTML='<input type="text" placeholder="指摘内容"><select><option>補修要</option><option>経過観察</option><option>対応不要</option></select><select><option>未対応</option><option>業者手配中</option><option>補修完了</option></select><button class="rm-btn" onclick="rmIssue(this)">×</button>';
+  document.getElementById('issues').appendChild(d);
+}
+function rmIssue(btn){ if(document.querySelectorAll('.issue-row').length>1) btn.parentElement.remove(); }
+function getIssues(){ return [...document.querySelectorAll('.issue-row')].map(r=>{const i=r.querySelectorAll('input,select');return{content:i[0].value,repairNeeded:i[1].value,repairStatus:i[2].value};}).filter(x=>x.content.trim()); }
+
+async function saveInspection(){
+  const propId=document.getElementById('sel-prop').value;
+  const alertEl=document.getElementById('save-alert');
+  if(!propId){showAlert(alertEl,'物件を選択してください','err');return;}
+  if(!gasUrl){showAlert(alertEl,'GAS URLが未設定です（GAS連携設定へ）','err');return;}
+  showAlert(alertEl,'スプレッドシートへ保存中...','ing');
+  document.getElementById('save-btn').disabled=true;
+  const payload={action:'save_inspection',payload:{
+    propertyId:propId, ownerName:document.getElementById('f-owner').value,
+    inspectionDate:document.getElementById('f-date').value, staff:document.getElementById('f-staff').value,
+    weather:document.getElementById('f-weather').value, inspectionType:document.getElementById('sel-type').value,
+    status:document.getElementById('f-status').value, repairDate:document.getElementById('f-repair').value,
+    constructionStartDate:document.getElementById('f-start').value, constructionEndDate:document.getElementById('f-end').value,
+    repairCompleteDate:document.getElementById('f-done').value, memo:document.getElementById('f-memo').value,
+    issues:getIssues()
+  }};
+  const res=await postGAS(payload);
+  document.getElementById('save-btn').disabled=false;
+  if(res&&res.status==='ok'){
+    showAlert(alertEl,'✓ 登録完了: 記録ID '+res.recordId,'ok');
+    const pi=properties.findIndex(p=>p.id===propId);
+    if(pi>=0){properties[pi].status=document.getElementById('f-status').value; saveProps();}
   } else {
-    loadLocal();
+    showAlert(alertEl,'保存失敗。GAS URLと権限を確認してください。','err');
+  }
+}
+function saveDraft(){ showAlert(document.getElementById('save-alert'),'下書きを一時保存しました','ok'); }
+
+// ====== OCR ======
+function handleUpload(input){
+  const file=input.files[0]; if(!file) return;
+  document.getElementById('ocr-s1').style.display='none';
+  document.getElementById('ocr-s2').style.display='block';
+  document.getElementById('ocr-proc').style.display='block';
+  document.getElementById('ocr-res').style.display='none';
+  if(file.type.startsWith('image/')){
+    const r=new FileReader();
+    r.onload=e=>{document.getElementById('ocr-img').src=e.target.result; callOCR(e.target.result.split(',')[1],file.type);};
+    r.readAsDataURL(file);
+  } else { callOCR(null,file.type); }
+}
+async function callOCR(b64,mime){
+  const prompt=`この定期点検記録用紙を読み取り、以下のJSONのみ返答してください。マークダウン不要。
+{"owner":"","property_id":"","date":"YYYY/MM/DD","staff":"","weather":"","issues":"（改行区切り）","repair_date":"","memo":"","confidence":{"owner":"high/low","date":"high/low","staff":"high/low"}}`;
+  const content=b64?[{type:'image',source:{type:'base64',media_type:mime,data:b64}},{type:'text',text:prompt}]:[{type:'text',text:'サンプル: {"owner":"竹村 奈緒美","property_id":"3552574","date":"2026/04/15","staff":"秋山 忠夫","weather":"晴れ","issues":"外壁シックイひび割れ\\nサッシすき間（洋室2）","repair_date":"2026/05/10","memo":"","confidence":{"owner":"high","date":"high","staff":"high"}}'}];
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content}]})});
+    const d=await r.json();
+    const txt=d.content.map(c=>c.text||'').join('').replace(/```json|```/g,'').trim();
+    showOCR(JSON.parse(txt));
+  }catch(e){document.getElementById('ocr-proc').textContent='読み取り失敗。再度お試しください。';}
+}
+function showOCR(d){
+  document.getElementById('ocr-proc').style.display='none';
+  document.getElementById('ocr-res').style.display='block';
+  document.getElementById('ocr-owner').value=d.owner||'';
+  document.getElementById('ocr-pid').value=d.property_id||'';
+  document.getElementById('ocr-date').value=d.date||'';
+  document.getElementById('ocr-staff').value=d.staff||'';
+  document.getElementById('ocr-weather').value=d.weather||'';
+  document.getElementById('ocr-issues').value=d.issues||'';
+  document.getElementById('ocr-repair').value=d.repair_date||'';
+  document.getElementById('ocr-memo').value=d.memo||'';
+  const conf=d.confidence||{};
+  ['owner','date','staff'].forEach(k=>{
+    const el=document.getElementById('c-'+k);
+    if(el){el.textContent=conf[k]==='high'?'高信頼':'要確認'; el.className='conf '+(conf[k]==='high'?'conf-high':'conf-low');}
+  });
+}
+function resetOCR(){ document.getElementById('ocr-s1').style.display='block'; document.getElementById('ocr-s2').style.display='none'; document.getElementById('ocr-s3').style.display='none'; }
+function transferOCR(){
+  document.getElementById('f-owner').value=document.getElementById('ocr-owner').value;
+  document.getElementById('f-date').value=document.getElementById('ocr-date').value.replace(/\//g,'-');
+  document.getElementById('f-staff').value=document.getElementById('ocr-staff').value;
+  document.getElementById('f-memo').value=document.getElementById('ocr-memo').value;
+  const issues=document.getElementById('ocr-issues').value.split('\n').filter(l=>l.trim());
+  const cont=document.getElementById('issues'); cont.innerHTML='';
+  (issues.length?issues:['']).forEach(line=>{
+    const div=document.createElement('div'); div.className='issue-row';
+    div.innerHTML=`<input type="text" value="${line.replace(/"/g,'&quot;')}"><select><option>補修要</option><option>経過観察</option><option>対応不要</option></select><select><option>未対応</option><option>業者手配中</option><option>補修完了</option></select><button class="rm-btn" onclick="rmIssue(this)">×</button>`;
+    cont.appendChild(div);
+  });
+  document.getElementById('ocr-s2').style.display='none';
+  document.getElementById('ocr-s3').style.display='block';
+}
+
+// ====== GAS ======
+function saveGasUrl(){
+  gasUrl=document.getElementById('gas-url-input').value.trim();
+  localStorage.setItem('gasUrl',gasUrl);
+  showAlert(document.getElementById('conn-alert'),'URLを保存しました。疎通確認を押してください。','ok');
+}
+async function testConn(){
+  gasUrl=document.getElementById('gas-url-input').value.trim();
+  if(!gasUrl){showAlert(document.getElementById('conn-alert'),'URLを入力してください','err');return;}
+  showAlert(document.getElementById('conn-alert'),'接続確認中...','ing');
+  try{
+    // GETで疎通確認（CORSに強い）
+    const r=await fetch(gasUrl+'?t='+Date.now());
+    const txt=await r.text();
+    const d=JSON.parse(txt);
+    if(d.status==='ok'){
+      localStorage.setItem('gasUrl',gasUrl);
+      showAlert(document.getElementById('conn-alert'),'✓ 接続成功: '+d.message,'ok');
+      await initApp();
+    } else showAlert(document.getElementById('conn-alert'),'応答異常: '+JSON.stringify(d),'err');
+  }catch(e){showAlert(document.getElementById('conn-alert'),'接続失敗。URLと「アクセス：全員」の設定を確認してください。（'+e.message+'）','err');}
+}
+async function initSheets(){
+  if(!gasUrl){showAlert(document.getElementById('init-alert'),'先にGAS URLを保存してください','err');return;}
+  showAlert(document.getElementById('init-alert'),'シート初期化中...','ing');
+  const res=await postGAS({action:'init'});
+  if(res&&res.status==='ok') showAlert(document.getElementById('init-alert'),'✓ 完了: '+res.message,'ok');
+  else showAlert(document.getElementById('init-alert'),'エラー: '+(res?.message||'不明'),'err');
+}
+async function postGAS(payload){
+  if(!gasUrl) return null;
+  try{
+    const r=await fetch(gasUrl,{
+      method:'POST',
+      mode:'no-cors', // iOSのCORSエラー回避
+      headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify(payload)
+    });
+    // no-corsではレスポンスが読めないため、GETでデータ取得する
+    if(payload.action==='get_all_data'){
+      const gr=await fetch(gasUrl+'?action=get_all_data&t='+Date.now());
+      const txt=await gr.text();
+      return JSON.parse(txt);
+    }
+    return {status:'ok'};
+  }catch(e){
+    // フォールバック：通常モードで試す
+    try{
+      const r=await fetch(gasUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)});
+      const txt=await r.text();
+      return JSON.parse(txt);
+    }catch(e2){return null;}
+  }
+}
+function updateGasIndicator(connected){
+  const dot=document.getElementById('sidebar-dot');
+  const lbl=document.getElementById('sidebar-gas-label');
+  gasConnected = !!connected;
+  if(gasConnected){dot.classList.add('connected');lbl.textContent='GAS接続済み';}
+  else{dot.classList.remove('connected');lbl.textContent='GAS未接続';}
+}
+
+// ====== EXPORT PDF (ブラウザ印刷方式) ======
+function openExportModal(){
+  const sel=properties.filter(p=>selected.has(p.id));
+  document.getElementById('modal-preview').innerHTML=sel.map(p=>`<div><b>${p.owner}</b>（${p.id}）　${p.type}　期限: ${p.scheduled||'未設定'}</div>`).join('');
+  document.getElementById('export-modal').classList.add('open');
+}
+function quickExport(id,e){ e.stopPropagation(); selected.clear(); selected.add(id); updateSel(); openExportModal(); }
+function closeModal(){ document.getElementById('export-modal').classList.remove('open'); }
+function doExport(){
+  const selProps=properties.filter(p=>selected.has(p.id));
+  const mode=document.getElementById('export-type').value;
+  closeModal();
+  if(mode==='bulk'){
+    printForms(selProps);
+  } else {
+    selProps.forEach((p,i)=>setTimeout(()=>printForms([p]),i*600));
+  }
+}
+function exportForms(type){
+  if(type==='blank') printForms([null]);
+}
+
+function buildFormHTML(propList){
+  const today=new Date().toLocaleDateString('ja-JP');
+  const pages=propList.map(p=>{
+    const pre=p!==null;
+    const preClass=pre?'prefilled':'';
+    const val=(v)=>pre&&v?`<span class="filled">${v}</span>`:'';
+    const info=pre?`<div class="date-info">${p.delivery?'引渡日: '+p.delivery:''} ${p.scheduled?'　点検期限: '+p.scheduled:''}</div>`:'';
+    const footer=pre?`現場ID: ${p.id}　｜　印字日: ${today}`:'白紙フォーム v1.0　｜　記入後は写真撮影してアップロードしてください';
+    return `
+<div class="page">
+  <div class="header">
+    <div class="header-title">定期点検 記録用紙</div>
+    <div class="header-sub">${pre?'■ 物件情報印字済み — 太枠内の点検内容をご記入ください':'記入後は写真撮影してシステムへアップロードしてください'}</div>
+  </div>
+  <div class="basic-block">
+    <div class="row3">
+      <div class="box ${preClass}"><div class="box-label">施主氏名</div><div class="box-val">${val(p?.owner)}</div></div>
+      <div class="box ${preClass}"><div class="box-label">現場ID</div><div class="box-val">${val(p?.id)}</div></div>
+      <div class="box ${preClass}"><div class="box-label">点検種別</div><div class="box-val">${val(p?.type)}</div></div>
+    </div>
+    <div class="row4">
+      <div class="box"><div class="box-label">実検日</div><div class="box-val"></div></div>
+      <div class="box ${preClass}"><div class="box-label">担当者</div><div class="box-val">${val(p?.staff)}</div></div>
+      <div class="box"><div class="box-label">天候</div><div class="box-val"></div></div>
+      <div class="box"><div class="box-label">同行者</div><div class="box-val"></div></div>
+    </div>
+    <div class="row1">
+      <div class="box ${preClass}"><div class="box-label">現場住所</div><div class="box-val">${val(p?.addr)}</div></div>
+    </div>
+    ${info}
+  </div>
+  <div class="section-bar">指摘事項</div>
+  <table class="issues-table">
+    <thead><tr><th style="width:5%">No.</th><th style="width:42%">指摘内容（場所・状況を具体的に）</th><th style="width:13%">補修要否</th><th style="width:13%">対応状況</th><th style="width:13%">補修予定日</th><th style="width:14%">備考</th></tr></thead>
+    <tbody>${[1,2,3,4,5,6,7,8].map(n=>`<tr><td class="no">${n}</td><td></td><td class="center"><span class="choice">要 ・ 否 ・ 観察</span></td><td class="center"><span class="choice">未 ・ 手配 ・ 完</span></td><td></td><td></td></tr>`).join('')}</tbody>
+  </table>
+  <div class="section-bar">補修・スケジュール</div>
+  <div class="row4">
+    <div class="box"><div class="box-label">補修可能日</div><div class="box-val tall"></div></div>
+    <div class="box"><div class="box-label">着工予定日</div><div class="box-val tall"></div></div>
+    <div class="box"><div class="box-label">完工予定日</div><div class="box-val tall"></div></div>
+    <div class="box"><div class="box-label">補修完了日</div><div class="box-val tall"></div></div>
+  </div>
+  <div class="section-bar">備考・特記事項（業者連絡・社内メモ等）</div>
+  <div class="memo-box"><div class="memo-line"></div><div class="memo-line"></div><div class="memo-line"></div></div>
+  <div class="footer"><span>${footer}</span><span>記入日: ____/____/____</span></div>
+</div>`;
+  });
+  return `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">
+<title>定期点検記録用紙</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP','Yu Gothic',sans-serif;background:#fff;}
+  @page{size:A4;margin:12mm 14mm;}
+  @media print{body{margin:0;}.page{page-break-after:always;}.page:last-child{page-break-after:avoid;}}
+  .page{width:100%;max-width:182mm;margin:0 auto;padding:0;font-size:9pt;}
+  .header{background:#222;color:#fff;padding:6px 10px;display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+  .header-title{font-size:13pt;font-weight:700;letter-spacing:.04em;}
+  .header-sub{font-size:7pt;opacity:.8;}
+  .basic-block{border:1px solid #aaa;margin-bottom:3px;}
+  .row1,.row3,.row4{display:flex;border-bottom:1px solid #ddd;}
+  .row1:last-child,.row3:last-child,.row4:last-child{border-bottom:none;}
+  .box{flex:1;border-right:1px solid #ddd;min-height:20px;}
+  .box:last-child{border-right:none;}
+  .box-label{background:#ddd;font-size:6.5pt;padding:1px 3px;color:#333;font-weight:600;}
+  .box.prefilled .box-label{background:#cde0f5;}
+  .box-val{min-height:14px;padding:2px 4px;font-size:9pt;}
+  .box-val.tall{min-height:20px;}
+  .filled{color:#1a3a7a;font-weight:600;}
+  .date-info{font-size:7pt;color:#2244aa;padding:2px 4px;background:#eef4ff;border-top:1px solid #ddd;}
+  .section-bar{background:#222;color:#fff;font-size:9pt;font-weight:600;padding:3px 6px;margin-bottom:0;}
+  .issues-table{width:100%;border-collapse:collapse;font-size:8pt;margin-bottom:3px;}
+  .issues-table th{background:#e8e8e8;border:1px solid #aaa;padding:3px 2px;text-align:center;font-size:7pt;font-weight:600;}
+  .issues-table td{border:1px solid #ccc;padding:3px 2px;height:13px;}
+  .issues-table tr:nth-child(even) td{background:#fafafa;}
+  .issues-table .no{text-align:center;color:#666;}
+  .issues-table .center{text-align:center;}
+  .choice{font-size:6.5pt;color:#555;}
+  .memo-box{border:1px solid #aaa;min-height:28mm;padding:2px 4px;margin-bottom:3px;position:relative;}
+  .memo-line{border-bottom:1px solid #e0e0e0;height:9mm;}
+  .memo-line:last-child{border-bottom:none;}
+  .footer{display:flex;justify-content:space-between;font-size:6.5pt;color:#888;padding:2px 0;border-top:1px solid #ddd;}
+  @media screen{.page{border:1px solid #ccc;padding:12mm 14mm;margin:10px auto;box-shadow:0 2px 8px rgba(0,0,0,.1);}}
+</style>
+</head><body>${pages.join('<div style="page-break-after:always"></div>')}</body></html>`;
+}
+
+function printForms(propList){
+  const html=buildFormHTML(propList);
+  const win=window.open('','_blank','width=900,height=700');
+  win.document.write(html);
+  win.document.close();
+  win.onload=()=>{ setTimeout(()=>win.print(), 300); };
+}
+
+// ====== EDIT & DELETE ======
+let editingId = '';
+
+function openEdit(id, e){
+  e.stopPropagation();
+  const p = properties.find(x=>x.id===id);
+  if(!p) return;
+  editingId = id;
+  document.getElementById('e-id').value = p.id||'';
+  document.getElementById('e-owner').value = p.owner||'';
+  document.getElementById('e-addr').value = p.addr||'';
+  document.getElementById('e-type').value = p.type||'2年点検・短期保証';
+  document.getElementById('e-staff').value = p.staff||'秋山 忠夫';
+  document.getElementById('e-delivery').value = p.delivery ? p.delivery.replace(/\//g,'-') : '';
+  document.getElementById('e-scheduled').value = p.scheduled||'（引渡日入力後に自動計算）';
+  document.getElementById('e-status').value = p.status||'未実施';
+  document.getElementById('edit-alert').className = 'alert';
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function closeEditModal(){
+  document.getElementById('edit-modal').classList.remove('open');
+  editingId = '';
+}
+
+document.getElementById('e-delivery').addEventListener('change', function(){
+  const val = this.value;
+  const typeVal = document.getElementById('e-type').value;
+  if(val && typeVal.includes('2年')){
+    const d = new Date(val); d.setFullYear(d.getFullYear()+2);
+    document.getElementById('e-scheduled').value =
+      `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+  } else if(val && typeVal.includes('1年')){
+    const d = new Date(val); d.setFullYear(d.getFullYear()+1);
+    document.getElementById('e-scheduled').value =
+      `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+  } else if(val && typeVal.includes('5年')){
+    const d = new Date(val); d.setFullYear(d.getFullYear()+5);
+    document.getElementById('e-scheduled').value =
+      `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
   }
 });
 
-function loadLocal() {
-  try { properties = JSON.parse(localStorage.getItem('properties') || '[]'); } catch(e) { properties = []; }
-  try { records = JSON.parse(localStorage.getItem('records') || '[]'); } catch(e) { records = []; }
-  renderDashboard();
-  renderProperties();
-}
-
-// ===== NAVIGATION =====
-function showPage(name) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('page-' + name).classList.add('active');
-  const navEl = document.getElementById('nav-' + name);
-  if (navEl) navEl.classList.add('active');
-  // Hide FAB on scan page
-  document.getElementById('fab-scan').style.display = (name === 'scan') ? 'none' : '';
-  if (name === 'dashboard') renderDashboard();
-  if (name === 'properties') renderProperties();
-}
-
-// ===== DASHBOARD =====
-function renderDashboard() {
-  document.getElementById('stat-total').textContent = properties.length;
-  document.getElementById('stat-repair').textContent = properties.filter(p => p.status === '補修対応中').length;
-  document.getElementById('stat-done').textContent = properties.filter(p => p.status === '完了').length;
-
-  const now = new Date();
-  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
-  const upcoming = properties.filter(p => {
-    if (!p.inspectionDeadline) return false;
-    const d = parseDate(p.inspectionDeadline);
-    return d && d >= now && d <= nextMonth;
-  });
-  document.getElementById('stat-month').textContent = upcoming.length;
-
-  const list = document.getElementById('upcoming-list');
-  if (upcoming.length === 0) {
-    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">✅</div><p>今月の予定はありません</p></div>';
-    return;
-  }
-  list.innerHTML = upcoming.slice(0, 5).map(p => propertyCardHTML(p)).join('');
-}
-
-// ===== PROPERTIES =====
-function setFilter(f, el) {
-  currentFilter = f;
-  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-  el.classList.add('active');
-  renderProperties();
-}
-
-function renderProperties() {
-  const q = (document.getElementById('search-input').value || '').trim().toLowerCase();
-  let list = properties;
-  if (currentFilter !== 'all') list = list.filter(p => p.status === currentFilter);
-  if (q) list = list.filter(p => (p.name||'').toLowerCase().includes(q) || (p.address||'').toLowerCase().includes(q));
-
-  const el = document.getElementById('properties-list');
-  if (list.length === 0) {
-    el.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏘️</div><p>物件がありません<br>CSVを取込んでください</p></div>';
-    return;
-  }
-  el.innerHTML = list.map(p => propertyCardHTML(p)).join('');
-}
-
-function propertyCardHTML(p) {
-  const s = STATUS_MAP[p.status] || STATUS_MAP['未点検'];
-  return `<div class="property-card ${s.cls}" onclick="openPropModal('${p.id}')">
-    <div class="card-top">
-      <div class="card-name">${p.name || '（氏名未入力）'}</div>
-      <span class="status-badge ${s.badge}">${p.status || '未点検'}</span>
-    </div>
-    <div class="card-address">${p.address || '住所未入力'}</div>
-    <div class="card-meta">
-      <div class="card-meta-item">引渡: <span>${p.handoverDate || '―'}</span></div>
-      <div class="card-meta-item">点検期限: <span>${p.inspectionDeadline || '―'}</span></div>
-      <div class="card-meta-item">担当: <span>${p.staff || '―'}</span></div>
-    </div>
-  </div>`;
-}
-
-// ===== PROPERTY MODAL =====
-function openPropModal(id) {
-  editingPropId = id;
-  const p = properties.find(x => x.id === id);
-  if (!p) return;
-  document.getElementById('prop-modal-title').textContent = p.name || '物件詳細';
-  document.getElementById('prop-modal-body').innerHTML = `
-    <div class="result-field"><div class="result-label">施主氏名</div><input class="result-input" id="edit-name" value="${p.name||''}"></div>
-    <div class="result-field"><div class="result-label">現場ID</div><input class="result-input" id="edit-id" value="${p.id||''}" readonly style="background:#f0f4f8"></div>
-    <div class="result-field"><div class="result-label">住所</div><input class="result-input" id="edit-address" value="${p.address||''}"></div>
-    <div class="result-field"><div class="result-label">担当者</div><input class="result-input" id="edit-staff" value="${p.staff||''}"></div>
-    <div class="result-field"><div class="result-label">引渡日</div><input class="result-input" id="edit-handover" type="date" value="${toInputDate(p.handoverDate)}"></div>
-    <div class="result-field"><div class="result-label">点検種別</div><input class="result-input" id="edit-type" value="${p.type||''}"></div>
-    <div class="result-field"><div class="result-label">ステータス</div>
-      <select class="result-input" id="edit-status">
-        ${['未点検','点検予定','補修対応中','完了'].map(s=>`<option value="${s}"${p.status===s?' selected':''}>${s}</option>`).join('')}
-      </select>
-    </div>
-    <div class="result-field"><div class="result-label">着工予定日</div><input class="result-input" id="edit-start" type="date" value="${toInputDate(p.repairStart)}"></div>
-    <div class="result-field"><div class="result-label">完工予定日</div><input class="result-input" id="edit-end" type="date" value="${toInputDate(p.repairEnd)}"></div>
-    <div class="result-field"><div class="result-label">備考</div><textarea class="result-input" id="edit-note" rows="3">${p.note||''}</textarea></div>
-  `;
-  document.getElementById('prop-modal').classList.add('open');
-  document.getElementById('prop-modal-bg').style.display = '';
-}
-
-function closePropModal() {
-  document.getElementById('prop-modal').classList.remove('open');
-  document.getElementById('prop-modal-bg').style.display = 'none';
-  editingPropId = null;
-}
-
-function savePropEdit() {
-  const p = properties.find(x => x.id === editingPropId);
-  if (!p) return;
-  const hd = document.getElementById('edit-handover').value;
-  const keepHandover = p.handoverDate && !hd ? p.handoverDate : (hd ? formatDate(hd) : p.handoverDate);
-  p.name = document.getElementById('edit-name').value;
-  p.address = document.getElementById('edit-address').value;
-  p.staff = document.getElementById('edit-staff').value;
-  p.handoverDate = keepHandover;
-  if (hd && !p.inspectionDeadline) p.inspectionDeadline = calcDeadline(hd);
-  p.type = document.getElementById('edit-type').value;
-  p.status = document.getElementById('edit-status').value;
-  p.repairStart = formatDate(document.getElementById('edit-start').value) || p.repairStart;
-  p.repairEnd = formatDate(document.getElementById('edit-end').value) || p.repairEnd;
-  p.note = document.getElementById('edit-note').value;
-  saveLocal();
-  closePropModal();
-  renderProperties();
-  renderDashboard();
-  showToast('保存しました', 'success');
-  if (gasUrl) pushPropToGAS(p);
-}
-
-function deleteProp() {
-  if (!confirm('この物件を削除しますか？')) return;
-  properties = properties.filter(x => x.id !== editingPropId);
-  saveLocal();
-  closePropModal();
-  renderProperties();
-  renderDashboard();
-  showToast('削除しました');
-}
-
-// ===== CSV IMPORT =====
-function importCSV(input) {
-  if (!input.files[0]) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const text = decodeCSV(e.target.result);
-    const rows = parseCSVRows(text);
-    if (rows.length < 2) { showToast('CSVを読み込めませんでした', 'error'); return; }
-    const headers = rows[0];
-    let added = 0, updated = 0;
-    rows.slice(1).forEach(cols => {
-      if (cols.length < 2) return;
-      const get = k => { const i = headers.indexOf(k); return i >= 0 ? (cols[i]||'').trim() : ''; };
-      const id = get('現場ID') || get('id') || ('ID_' + Math.random().toString(36).slice(2,7));
-      const addr = [get('郵便番号'), get('都道府県'), get('市区町村'), get('番地名')].filter(Boolean).join(' ');
-      const hd = get('引渡日');
-      const newP = {
-        id, name: get('施主氏名') || get('現場名'),
-        address: addr || get('住所'),
-        staff: get('現場管理担当者'),
-        handoverDate: hd ? formatDate(hd) : '',
-        inspectionDeadline: hd ? calcDeadline(hd) : '',
-        type: get('種類') || '2年点検',
-        repairStart: formatDate(get('着工予定日')),
-        repairEnd: formatDate(get('完工予定日')),
-        status: '未点検', note: '',
-      };
-      const existing = properties.findIndex(p => p.id === id);
-      if (existing >= 0) {
-        const ep = properties[existing];
-        // protect hand-edited fields
-        if (!ep.name && newP.name) ep.name = newP.name;
-        if (!ep.address && newP.address) ep.address = newP.address;
-        if (!ep.staff && newP.staff) ep.staff = newP.staff;
-        if (!ep.handoverDate && newP.handoverDate) { ep.handoverDate = newP.handoverDate; ep.inspectionDeadline = newP.inspectionDeadline; }
-        if (!ep.repairStart && newP.repairStart) ep.repairStart = newP.repairStart;
-        if (!ep.repairEnd && newP.repairEnd) ep.repairEnd = newP.repairEnd;
-        updated++;
-      } else {
-        properties.push(newP);
-        added++;
-      }
-    });
-    saveLocal();
-    renderDashboard();
-    renderProperties();
-    showToast(`新規 ${added}件・更新 ${updated}件 取込完了`, 'success');
-    if (gasUrl) bulkPushToGAS();
+async function saveEdit(){
+  const owner = document.getElementById('e-owner').value.trim();
+  const alertEl = document.getElementById('edit-alert');
+  if(!owner){ showAlert(alertEl,'施主氏名は必須です','err'); return; }
+  const delivery = document.getElementById('e-delivery').value.replace(/-/g,'/');
+  const scheduled = document.getElementById('e-scheduled').value;
+  const updated = {
+    id: editingId,
+    owner,
+    addr: document.getElementById('e-addr').value,
+    type: document.getElementById('e-type').value,
+    staff: document.getElementById('e-staff').value,
+    delivery,
+    scheduled: scheduled.includes('自動計算') ? '' : scheduled,
+    status: document.getElementById('e-status').value,
   };
-  reader.readAsArrayBuffer(input.files[0]);
-  input.value = '';
-}
-
-function importCSVFromSettings() {
-  document.getElementById('csv-input-settings').click();
-}
-
-function decodeCSV(buffer) {
-  const bytes = new Uint8Array(buffer);
-  // Try Shift-JIS first
-  try { return new TextDecoder('shift-jis').decode(bytes); } catch(e) {}
-  try { return new TextDecoder('utf-8').decode(bytes); } catch(e) {}
-  return new TextDecoder('ascii').decode(bytes);
-}
-
-function parseCSVRows(text) {
-  const rows = []; let row = []; let cell = ''; let inQ = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (inQ) { if (c === '"') { if (text[i+1] === '"') { cell += '"'; i++; } else inQ = false; } else cell += c; }
-    else if (c === '"') inQ = true;
-    else if (c === ',') { row.push(cell); cell = ''; }
-    else if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
-    else if (c !== '\r') cell += c;
-  }
-  if (cell || row.length) { row.push(cell); if (row.some(c=>c)) rows.push(row); }
-  return rows;
-}
-
-// ===== SCAN =====
-let photoDataUrl = '';
-
-function onPhotoSelected(input) {
-  if (!input.files[0]) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    photoDataUrl = e.target.result;
-    const img = document.getElementById('preview-img');
-    img.src = photoDataUrl;
-    img.style.display = 'block';
-    document.getElementById('btn-analyze').disabled = false;
-    document.getElementById('upload-zone').querySelector('.upload-text').textContent = '写真を変更するにはタップ';
-  };
-  reader.readAsDataURL(input.files[0]);
-}
-
-async function startAnalysis() {
-  if (!photoDataUrl) return;
-  document.getElementById('scan-step1').style.display = 'none';
-  document.getElementById('scan-step2').style.display = '';
-  setStep(2);
-
-  try {
-    const base64 = photoDataUrl.split(',')[1];
-    const mtype = photoDataUrl.split(';')[0].split(':')[1];
-
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: mtype, data: base64 } },
-            { type: 'text', text: `この定期点検記録用紙の手書き内容を読み取ってください。
-以下のJSON形式のみで返してください（マークダウンや説明文は不要）：
-{"name":"施主氏名","siteId":"現場ID","date":"点検実施日(YYYY-MM-DD)","staff":"担当者名","issues":[{"no":"番号","location":"場所・部位","content":"内容","needsRepair":"要/不要","status":"未対応/対応中/完了"}],"note":"備考"}
-読み取れない項目は空文字にしてください。` }
-          ]
-        }]
-      })
-    });
-    const data = await resp.json();
-    const text = data.content?.map(b => b.text||'').join('');
-    let parsed;
-    try {
-      const clean = text.replace(/```json|```/g,'').trim();
-      parsed = JSON.parse(clean);
-    } catch(e) { parsed = { name:'', siteId:'', date:'', staff:'', issues:[], note:'' }; }
-
-    showResults(parsed);
-  } catch(err) {
-    document.getElementById('scan-step2').style.display = 'none';
-    document.getElementById('scan-step1').style.display = '';
-    setStep(1);
-    showToast('AI読み取りに失敗しました', 'error');
+  const idx = properties.findIndex(p=>p.id===editingId);
+  if(idx >= 0) properties[idx] = updated;
+  saveProps(); renderTable(); renderMaster();
+  if(gasUrl){
+    showAlert(alertEl,'スプレッドシートに反映中...','ing');
+    const res = await postGAS({action:'save_property', payload:{
+      propertyId: updated.id, ownerName: updated.owner, address: updated.addr,
+      deliveryDate: updated.delivery, staff: updated.staff, inspectionType: updated.type,
+      scheduledDate: updated.scheduled, status: updated.status
+    }});
+    if(res && res.status==='ok') showAlert(alertEl,'✓ 保存しました','ok');
+    else showAlert(alertEl,'ローカル保存済み（GAS反映失敗）','err');
+    setTimeout(()=>closeEditModal(), 1200);
+  } else {
+    closeEditModal();
   }
 }
 
-function showResults(d) {
-  document.getElementById('scan-step2').style.display = 'none';
-  document.getElementById('scan-step3').style.display = '';
-  setStep(3);
-
-  document.getElementById('r-name').value = d.name || '';
-  document.getElementById('r-id').value = d.siteId || '';
-  document.getElementById('r-date').value = d.date || '';
-  document.getElementById('r-staff').value = d.staff || '';
-  document.getElementById('r-note').value = d.note || '';
-
-  const issues = d.issues && d.issues.length > 0 ? d.issues : [{ no:'1', location:'', content:'', needsRepair:'', status:'' }];
-  renderIssues(issues);
-}
-
-function renderIssues(issues) {
-  const container = document.getElementById('issues-container');
-  container.innerHTML = `<table class="issues-table">
-    <thead><tr><th>No</th><th>場所・部位</th><th>内容</th><th>補修要否</th><th>状況</th></tr></thead>
-    <tbody id="issues-tbody">${issues.map((issue, i) => issueRowHTML(i, issue)).join('')}</tbody>
-  </table>`;
-}
-
-function issueRowHTML(i, issue) {
-  return `<tr>
-    <td><input value="${issue.no||i+1}" style="width:40px"></td>
-    <td><input value="${issue.location||''}"></td>
-    <td><input value="${issue.content||''}"></td>
-    <td><select><option ${issue.needsRepair==='要'?'selected':''}>要</option><option ${issue.needsRepair==='不要'?'selected':''}>不要</option></select></td>
-    <td><select><option ${issue.status==='未対応'?'selected':''}>未対応</option><option ${issue.status==='対応中'?'selected':''}>対応中</option><option ${issue.status==='完了'?'selected':''}>完了</option></select></td>
-  </tr>`;
-}
-
-function addIssueRow() {
-  const tbody = document.getElementById('issues-tbody');
-  if (!tbody) return;
-  const n = tbody.rows.length + 1;
-  const tr = document.createElement('tr');
-  tr.innerHTML = issueRowHTML(n-1, { no:n, location:'', content:'', needsRepair:'要', status:'未対応' });
-  tbody.appendChild(tr);
-}
-
-function saveRecord() {
-  const rec = {
-    id: 'REC_' + Date.now(),
-    siteId: document.getElementById('r-id').value,
-    name: document.getElementById('r-name').value,
-    date: document.getElementById('r-date').value,
-    staff: document.getElementById('r-staff').value,
-    note: document.getElementById('r-note').value,
-    issues: [],
-    createdAt: new Date().toISOString(),
-  };
-
-  const tbody = document.getElementById('issues-tbody');
-  if (tbody) {
-    Array.from(tbody.rows).forEach(row => {
-      const inputs = row.querySelectorAll('input, select');
-      rec.issues.push({
-        no: inputs[0]?.value, location: inputs[1]?.value, content: inputs[2]?.value,
-        needsRepair: inputs[3]?.value, status: inputs[4]?.value
-      });
-    });
+async function deleteProperty(){
+  const p = properties.find(x=>x.id===editingId);
+  if(!p) return;
+  if(!confirm(`「${p.owner}」を削除しますか？\nこの操作は元に戻せません。`)) return;
+  properties = properties.filter(x=>x.id!==editingId);
+  saveProps(); renderTable(); renderMaster();
+  if(gasUrl){
+    await postGAS({action:'delete_property', payload:{propertyId:editingId, ownerName:p.owner}});
   }
-
-  // Update property status
-  const siteId = rec.siteId;
-  if (siteId) {
-    const p = properties.find(x => x.id === siteId);
-    if (p) {
-      if (p.status === '未点検' || p.status === '点検予定') {
-        p.status = rec.issues.some(i => i.needsRepair === '要') ? '補修対応中' : '完了';
-      }
-    }
-  }
-
-  records.push(rec);
-  saveLocal();
-  resetScan();
-  showToast('点検記録を保存しました', 'success');
-  if (gasUrl) pushRecordToGAS(rec);
+  closeEditModal();
 }
 
-function resetScan() {
-  photoDataUrl = '';
-  document.getElementById('preview-img').style.display = 'none';
-  document.getElementById('preview-img').src = '';
-  document.getElementById('btn-analyze').disabled = true;
-  document.getElementById('photo-input').value = '';
-  document.getElementById('upload-zone').querySelector('.upload-text').textContent = 'タップして写真を選択';
-  document.getElementById('scan-step1').style.display = '';
-  document.getElementById('scan-step2').style.display = 'none';
-  document.getElementById('scan-step3').style.display = 'none';
-  setStep(1);
-}
 
-function setStep(n) {
-  [1,2,3].forEach(i => {
-    const s = document.getElementById('step'+i);
-    s.classList.remove('active','done');
-    if (i < n) s.classList.add('done');
-    else if (i === n) s.classList.add('active');
-  });
-  [1,2].forEach(i => {
-    const l = document.getElementById('line'+i);
-    l.classList.toggle('done', i < n);
-  });
-}
+function showAlert(el,msg,type){ el.textContent=msg; el.className='alert alert-'+type+' show'; }
 
-// ===== GAS =====
-function saveGASUrl() {
-  gasUrl = document.getElementById('gas-url-input').value.trim();
-  localStorage.setItem('gasUrl', gasUrl);
-  showToast('URLを保存しました', 'success');
-  updateGasDot(gasUrl ? 'connecting' : 'none');
-}
-
-async function testGAS() {
-  if (!gasUrl) { showToast('URLを入力してください', 'error'); return; }
-  try {
-    const res = await callGAS({ action: 'ping' });
-    if (res && res.status === 'ok') { updateGasDot('ok'); showToast('接続成功', 'success'); }
-    else { updateGasDot('error'); showToast('接続失敗: ' + (res?.message||'不明'), 'error'); }
-  } catch(e) { updateGasDot('error'); showToast('接続できません', 'error'); }
-}
-
-async function initSheets() {
-  if (!gasUrl) { showToast('URLを入力してください', 'error'); return; }
-  try {
-    const res = await callGAS({ action: 'init_sheets' });
-    if (res && res.status === 'ok') showToast('シートを初期化しました', 'success');
-    else showToast('初期化失敗', 'error');
-  } catch(e) { showToast('エラー: ' + e.message, 'error'); }
-}
-
-async function loadFromGAS() {
-  if (!gasUrl) return;
-  try {
-    const res = await callGAS({ action: 'get_all_data' });
-    if (res && res.properties) {
-      properties = res.properties;
-      records = res.records || [];
-      saveLocal();
-      updateGasDot('ok');
-      renderDashboard();
-      renderProperties();
-    } else {
-      updateGasDot('error');
-      loadLocal();
-    }
-  } catch(e) { updateGasDot('error'); loadLocal(); }
-}
-
-async function refreshFromGAS() {
-  showToast('更新中...');
-  await loadFromGAS();
-  showToast('更新しました', 'success');
-}
-
-async function bulkPushToGAS() {
-  if (!gasUrl) return;
-  try { await callGAS({ action: 'bulk_save', properties, records }); }
-  catch(e) { console.warn('GAS push failed', e); }
-}
-
-async function exportToGAS() {
-  if (!gasUrl) { showToast('GAS URLを設定してください', 'error'); return; }
-  showToast('送信中...');
-  try {
-    await callGAS({ action: 'bulk_save', properties, records });
-    showToast('スプレッドシートに書き出しました', 'success');
-  } catch(e) { showToast('書き出し失敗', 'error'); }
-}
-
-async function pushPropToGAS(p) {
-  if (!gasUrl) return;
-  try { await callGAS({ action: 'save_property', property: p }); } catch(e) {}
-}
-
-async function pushRecordToGAS(r) {
-  if (!gasUrl) return;
-  try { await callGAS({ action: 'save_record', record: r }); } catch(e) {}
-}
-
-async function callGAS(payload) {
-  const res = await fetch(gasUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify(payload)
-  });
-  return await res.json();
-}
-
-function updateGasDot(state) {
-  const dot = document.getElementById('gas-dot');
-  const label = document.getElementById('gas-label');
-  dot.className = '';
-  if (state === 'ok') { dot.classList.add('connected'); label.textContent = '接続済'; }
-  else if (state === 'error') { dot.classList.add('error'); label.textContent = 'エラー'; }
-  else if (state === 'connecting') { label.textContent = '接続中...'; }
-  else { label.textContent = '未接続'; }
-}
-
-// ===== HELPERS =====
-function saveLocal() {
-  localStorage.setItem('properties', JSON.stringify(properties));
-  localStorage.setItem('records', JSON.stringify(records));
-}
-
-function parseDate(s) {
-  if (!s) return null;
-  const m = s.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
-  return m ? new Date(+m[1], +m[2]-1, +m[3]) : null;
-}
-
-function formatDate(s) {
-  if (!s) return '';
-  const m = s.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
-  if (!m) return s;
-  return `${m[1]}/${m[2].padStart(2,'0')}/${m[3].padStart(2,'0')}`;
-}
-
-function toInputDate(s) {
-  if (!s) return '';
-  const m = s.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
-  return m ? `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}` : '';
-}
-
-function calcDeadline(hd) {
-  const d = parseDate(hd);
-  if (!d) return '';
-  d.setFullYear(d.getFullYear() + 2);
-  return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
-}
-
-let toastTimer;
-function showToast(msg, type='') {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.className = 'show' + (type ? ' ' + type : '');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.className = ''; }, 2800);
-}
+// 起動
+initApp();
 </script>
 </body>
 </html>

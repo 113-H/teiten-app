@@ -463,22 +463,57 @@
           <div class="step-seg">2. AI読み取り確認</div>
           <div class="step-seg">3. 点検記録へ転記</div>
         </div>
-        <label class="upload-zone">
-          <input type="file" accept="image/*,application/pdf" onchange="handleUpload(this)">
-          <div class="upload-icon">↑</div>
-          <p style="font-size:14px;font-weight:500;margin-bottom:4px;">写真またはPDFをアップロード</p>
-          <p style="font-size:12px;color:var(--text2);">スマホ撮影・スキャンどちらも対応</p>
-        </label>
+        <div class="card" style="padding:0;overflow:hidden;">
+          <label class="upload-zone" style="border:none;border-radius:0;margin:0;display:block;width:100%;cursor:pointer;">
+            <input type="file" accept="image/*,application/pdf" capture="environment" onchange="handleUpload(this)" style="display:none;">
+            <div style="text-align:center;padding:2.5rem 1rem;">
+              <div style="font-size:48px;color:var(--text3);margin-bottom:12px;line-height:1;">↑</div>
+              <p style="font-size:15px;font-weight:600;margin-bottom:6px;">写真またはPDFをアップロード</p>
+              <p style="font-size:13px;color:var(--text2);">タップしてカメラ撮影またはファイルを選択</p>
+            </div>
+          </label>
+        </div>
+        <div class="note" style="margin-top:12px;">印刷したフォームを平らに置き、明るい場所で撮影すると読み取り精度が上がります。</div>
       </div>
+
       <div id="ocr-s2" style="display:none;">
         <div class="step-bar">
           <div class="step-seg done">1. 完了</div>
           <div class="step-seg active">2. AI読み取り確認</div>
           <div class="step-seg">3. 点検記録へ転記</div>
         </div>
-        <div id="ocr-proc" style="text-align:center;padding:3rem;color:var(--text2);">AIが手書き文字を解析中...</div>
+
+        <!-- 処理中表示 -->
+        <div id="ocr-proc" class="card" style="text-align:center;padding:3rem 1rem;">
+          <div style="font-size:32px;margin-bottom:12px;">⏳</div>
+          <p style="font-size:14px;color:var(--text2);margin-bottom:6px;" id="ocr-proc-msg">AIが手書き文字を解析中...</p>
+          <p style="font-size:12px;color:var(--text3);">10〜20秒ほどかかります</p>
+        </div>
+
+        <!-- エラー表示 -->
+        <div id="ocr-err" style="display:none;">
+          <div class="card" style="text-align:center;padding:2rem 1rem;border-color:var(--red-txt);">
+            <div style="font-size:32px;margin-bottom:12px;">✕</div>
+            <p style="font-size:15px;font-weight:600;margin-bottom:8px;">読み取りに失敗しました</p>
+            <p style="font-size:13px;color:var(--text2);margin-bottom:6px;" id="ocr-err-msg">もう一度お試しください。</p>
+            <ul style="font-size:12px;color:var(--text2);text-align:left;display:inline-block;margin-bottom:1.5rem;line-height:2;">
+              <li>明るい場所で撮影する</li>
+              <li>用紙全体が写るようにする</li>
+              <li>手ブレに注意する</li>
+            </ul>
+            <div style="display:flex;flex-direction:column;gap:10px;max-width:240px;margin:0 auto;">
+              <label class="btn btn-primary" style="cursor:pointer;text-align:center;padding:10px;">
+                再撮影する
+                <input type="file" accept="image/*,application/pdf" capture="environment" onchange="handleUpload(this)" style="display:none;">
+              </label>
+              <button class="btn" onclick="resetOCR()">最初からやり直す</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 読み取り結果 -->
         <div id="ocr-res" style="display:none;">
-          <img id="ocr-img" style="max-width:100%;max-height:200px;border-radius:var(--radius);border:1px solid var(--border);display:block;margin:0 auto 14px;">
+          <img id="ocr-img" style="max-width:100%;max-height:180px;border-radius:var(--radius);border:1px solid var(--border);display:block;margin:0 auto 14px;object-fit:contain;">
           <div class="ai-result">
             <div style="font-size:11px;color:var(--text2);font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px;">AI読み取り結果（修正可能）</div>
             <div class="ai-field"><span class="ai-field-name">施主氏名</span><input type="text" id="ocr-owner"><span id="c-owner" class="conf"></span></div>
@@ -493,22 +528,27 @@
             <div class="ai-field"><span class="ai-field-name">補修可能日</span><input type="text" id="ocr-repair"></div>
             <div class="ai-field"><span class="ai-field-name">備考</span><input type="text" id="ocr-memo"></div>
           </div>
-          <div style="display:flex;justify-content:space-between;">
+          <div style="display:flex;justify-content:space-between;gap:10px;">
             <button class="btn" onclick="resetOCR()">やり直す</button>
             <button class="btn btn-primary" onclick="transferOCR()">点検記録へ転記する</button>
           </div>
         </div>
       </div>
+
       <div id="ocr-s3" style="display:none;">
         <div class="step-bar">
           <div class="step-seg done">1. 完了</div>
           <div class="step-seg done">2. 完了</div>
           <div class="step-seg active">3. 転記完了</div>
         </div>
-        <div style="text-align:center;padding:3rem;">
+        <div class="card" style="text-align:center;padding:2.5rem 1rem;">
+          <div style="font-size:36px;margin-bottom:12px;">✓</div>
           <p style="font-size:16px;font-weight:600;margin-bottom:8px;">転記が完了しました</p>
           <p style="font-size:13px;color:var(--text2);margin-bottom:20px;">点検記録入力画面で内容を確認・修正してから登録してください。</p>
-          <button class="btn btn-primary" onclick="showScreen('inspection',null)">点検記録入力へ移動</button>
+          <div style="display:flex;flex-direction:column;gap:10px;max-width:240px;margin:0 auto;">
+            <button class="btn btn-primary" onclick="showScreen('inspection',null)">点検記録入力へ移動</button>
+            <button class="btn" onclick="resetOCR()">別の用紙を読み取る</button>
+          </div>
         </div>
       </div>
     </div>
@@ -883,24 +923,52 @@ function handleUpload(input){
   const file=input.files[0]; if(!file) return;
   document.getElementById('ocr-s1').style.display='none';
   document.getElementById('ocr-s2').style.display='block';
+  document.getElementById('ocr-s3').style.display='none';
   document.getElementById('ocr-proc').style.display='block';
+  document.getElementById('ocr-err').style.display='none';
   document.getElementById('ocr-res').style.display='none';
+  document.getElementById('ocr-proc-msg').textContent='AIが手書き文字を解析中...';
   if(file.type.startsWith('image/')){
     const r=new FileReader();
     r.onload=e=>{document.getElementById('ocr-img').src=e.target.result; callOCR(e.target.result.split(',')[1],file.type);};
     r.readAsDataURL(file);
   } else { callOCR(null,file.type); }
 }
+
 async function callOCR(b64,mime){
   const prompt=`この定期点検記録用紙を読み取り、以下のJSONのみ返答してください。マークダウン不要。
 {"owner":"","property_id":"","date":"YYYY/MM/DD","staff":"","weather":"","issues":"（改行区切り）","repair_date":"","memo":"","confidence":{"owner":"high/low","date":"high/low","staff":"high/low"}}`;
-  const content=b64?[{type:'image',source:{type:'base64',media_type:mime,data:b64}},{type:'text',text:prompt}]:[{type:'text',text:'サンプル: {"owner":"竹村 奈緒美","property_id":"3552574","date":"2026/04/15","staff":"秋山 忠夫","weather":"晴れ","issues":"外壁シックイひび割れ\\nサッシすき間（洋室2）","repair_date":"2026/05/10","memo":"","confidence":{"owner":"high","date":"high","staff":"high"}}'}];
+  const content=b64
+    ?[{type:'image',source:{type:'base64',media_type:mime,data:b64}},{type:'text',text:prompt}]
+    :[{type:'text',text:'サンプル: {"owner":"竹村 奈緒美","property_id":"3552574","date":"2026/04/15","staff":"秋山 忠夫","weather":"晴れ","issues":"外壁シックイひび割れ\\nサッシすき間（洋室2）","repair_date":"2026/05/10","memo":"","confidence":{"owner":"high","date":"high","staff":"high"}}'}];
   try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content}]})});
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1500,messages:[{role:'user',content}]})
+    });
+    if(!r.ok){
+      const errTxt = await r.text();
+      showOCRError(`APIエラー (${r.status})。しばらく待ってから再試行してください。`);
+      return;
+    }
     const d=await r.json();
-    const txt=d.content.map(c=>c.text||'').join('').replace(/```json|```/g,'').trim();
-    showOCR(JSON.parse(txt));
-  }catch(e){document.getElementById('ocr-proc').textContent='読み取り失敗。再度お試しください。';}
+    if(d.error){showOCRError('APIエラー: '+d.error.message); return;}
+    const rawTxt=d.content.map(c=>c.text||'').join('');
+    const jsonMatch = rawTxt.match(/\{[\s\S]*\}/);
+    if(!jsonMatch){showOCRError('読み取り結果を解析できませんでした。再撮影してください。'); return;}
+    const parsed=JSON.parse(jsonMatch[0]);
+    showOCR(parsed);
+  }catch(e){
+    showOCRError('接続エラー: '+e.message);
+  }
+}
+
+function showOCRError(msg){
+  document.getElementById('ocr-proc').style.display='none';
+  document.getElementById('ocr-res').style.display='none';
+  document.getElementById('ocr-err').style.display='block';
+  document.getElementById('ocr-err-msg').textContent=msg||'もう一度お試しください。';
 }
 function showOCR(d){
   document.getElementById('ocr-proc').style.display='none';
@@ -919,7 +987,14 @@ function showOCR(d){
     if(el){el.textContent=conf[k]==='high'?'高信頼':'要確認'; el.className='conf '+(conf[k]==='high'?'conf-high':'conf-low');}
   });
 }
-function resetOCR(){ document.getElementById('ocr-s1').style.display='block'; document.getElementById('ocr-s2').style.display='none'; document.getElementById('ocr-s3').style.display='none'; }
+function resetOCR(){
+  document.getElementById('ocr-s1').style.display='block';
+  document.getElementById('ocr-s2').style.display='none';
+  document.getElementById('ocr-s3').style.display='none';
+  document.getElementById('ocr-err').style.display='none';
+  document.getElementById('ocr-res').style.display='none';
+  document.getElementById('ocr-proc').style.display='block';
+}
 function transferOCR(){
   document.getElementById('f-owner').value=document.getElementById('ocr-owner').value;
   document.getElementById('f-date').value=document.getElementById('ocr-date').value.replace(/\//g,'-');

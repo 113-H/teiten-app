@@ -936,31 +936,38 @@ function handleUpload(input){
 }
 
 async function callOCR(b64,mime){
-  const prompt=`この定期点検記録用紙を読み取り、以下のJSONのみ返答してください。マークダウン不要。
-{"owner":"","property_id":"","date":"YYYY/MM/DD","staff":"","weather":"","issues":"（改行区切り）","repair_date":"","memo":"","confidence":{"owner":"high/low","date":"high/low","staff":"high/low"}}`;
-  const content=b64
-    ?[{type:'image',source:{type:'base64',media_type:mime,data:b64}},{type:'text',text:prompt}]
-    :[{type:'text',text:'サンプル: {"owner":"竹村 奈緒美","property_id":"3552574","date":"2026/04/15","staff":"秋山 忠夫","weather":"晴れ","issues":"外壁シックイひび割れ\\nサッシすき間（洋室2）","repair_date":"2026/05/10","memo":"","confidence":{"owner":"high","date":"high","staff":"high"}}'}];
+  // GAS未設定時はエラー
+  if(!gasUrl){
+    showOCRError('GAS URLが設定されていません。設定タブからGAS URLを入力してください。');
+    return;
+  }
+
   try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1500,messages:[{role:'user',content}]})
+    // GAS経由でAnthropicAPIを呼び出す（APIキーはGAS側で管理）
+    const r = await fetch(gasUrl, {
+      method: 'POST',
+      headers: {'Content-Type': 'text/plain'},
+      body: JSON.stringify({
+        action: 'ocr_read',
+        payload: {
+          imageBase64: b64,
+          mimeType: mime
+        }
+      })
     });
-    if(!r.ok){
-      const errTxt = await r.text();
-      showOCRError(`APIエラー (${r.status})。しばらく待ってから再試行してください。`);
+
+    const txt = await r.text();
+    const res = JSON.parse(txt);
+
+    if(!res || res.status !== 'ok'){
+      showOCRError((res && res.message) || '読み取りに失敗しました。再撮影してください。');
       return;
     }
-    const d=await r.json();
-    if(d.error){showOCRError('APIエラー: '+d.error.message); return;}
-    const rawTxt=d.content.map(c=>c.text||'').join('');
-    const jsonMatch = rawTxt.match(/\{[\s\S]*\}/);
-    if(!jsonMatch){showOCRError('読み取り結果を解析できませんでした。再撮影してください。'); return;}
-    const parsed=JSON.parse(jsonMatch[0]);
-    showOCR(parsed);
+
+    showOCR(res.data);
+
   }catch(e){
-    showOCRError('接続エラー: '+e.message);
+    showOCRError('通信エラー: ' + e.message);
   }
 }
 

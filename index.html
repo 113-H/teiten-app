@@ -927,12 +927,48 @@ function handleUpload(input){
   document.getElementById('ocr-proc').style.display='block';
   document.getElementById('ocr-err').style.display='none';
   document.getElementById('ocr-res').style.display='none';
-  document.getElementById('ocr-proc-msg').textContent='AIが手書き文字を解析中...';
+  document.getElementById('ocr-proc-msg').textContent='画像を最適化中...';
+
   if(file.type.startsWith('image/')){
-    const r=new FileReader();
-    r.onload=e=>{document.getElementById('ocr-img').src=e.target.result; callOCR(e.target.result.split(',')[1],file.type);};
-    r.readAsDataURL(file);
-  } else { callOCR(null,file.type); }
+    const reader=new FileReader();
+    reader.onload=e=>{
+      // Canvas で圧縮（5MB以下になるまで品質を下げる）
+      const img=new Image();
+      img.onload=()=>{
+        const MAX=4.5*1024*1024; // 4.5MB上限
+        let quality=0.85;
+        let b64='';
+        let mime='image/jpeg';
+
+        const canvas=document.createElement('canvas');
+        // 長辺2000px以内にリサイズ
+        const maxDim=2000;
+        let w=img.width, h=img.height;
+        if(w>maxDim||h>maxDim){
+          if(w>h){h=Math.round(h*maxDim/w);w=maxDim;}
+          else{w=Math.round(w*maxDim/h);h=maxDim;}
+        }
+        canvas.width=w; canvas.height=h;
+        const ctx=canvas.getContext('2d');
+        ctx.drawImage(img,0,0,w,h);
+
+        // 品質を下げながら5MB以下になるまで圧縮
+        do{
+          const dataUrl=canvas.toDataURL(mime,quality);
+          b64=dataUrl.split(',')[1];
+          quality-=0.1;
+        }while(b64.length*0.75>MAX && quality>0.3);
+
+        document.getElementById('ocr-img').src=canvas.toDataURL(mime,quality+0.1);
+        document.getElementById('ocr-proc-msg').textContent='AIが手書き文字を解析中（10〜30秒）...';
+        callOCR(b64, mime);
+      };
+      img.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  } else {
+    callOCR(null, file.type);
+  }
 }
 
 async function callOCR(b64, mime){

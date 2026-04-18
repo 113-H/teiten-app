@@ -449,7 +449,7 @@
 
         <div class="save-bar">
           <div id="save-alert" class="alert" style="flex:1;margin:0;"></div>
-          <button class="btn" onclick="saveDraft()">下書き保存</button>
+          <button class="btn" onclick="resetInspectionForm()" style="color:var(--red-txt);border-color:var(--red-txt);">入力をリセット</button>
           <button class="btn btn-primary" id="save-btn" onclick="saveInspection()">スプレッドシートへ登録</button>
         </div>
       </div>
@@ -526,6 +526,9 @@
               <textarea id="ocr-issues" style="min-height:72px;flex:1;"></textarea>
             </div>
             <div class="ai-field"><span class="ai-field-name">補修可能日</span><input type="text" id="ocr-repair"></div>
+            <div class="ai-field"><span class="ai-field-name">着工予定日</span><input type="text" id="ocr-construction-start"></div>
+            <div class="ai-field"><span class="ai-field-name">完工予定日</span><input type="text" id="ocr-construction-end"></div>
+            <div class="ai-field"><span class="ai-field-name">補修完了日</span><input type="text" id="ocr-repair-complete"></div>
             <div class="ai-field"><span class="ai-field-name">備考</span><input type="text" id="ocr-memo"></div>
           </div>
           <div style="display:flex;justify-content:space-between;gap:10px;">
@@ -912,6 +915,10 @@ async function saveInspection(){
     showAlert(alertEl,'✓ 登録完了: 記録ID '+res.recordId,'ok');
     const pi=properties.findIndex(p=>p.id===propId);
     if(pi>=0){properties[pi].status=document.getElementById('f-status').value; saveProps();}
+    // 3秒後に自動リセット
+    setTimeout(()=>{
+      if(confirm('登録が完了しました。入力欄をリセットしますか？')) resetInspectionForm();
+    }, 1000);
   } else {
     showAlert(alertEl,'保存失敗。GAS URLと権限を確認してください。','err');
   }
@@ -1047,6 +1054,9 @@ function showOCR(d){
   document.getElementById('ocr-weather').value=d.weather||'';
   document.getElementById('ocr-issues').value=d.issues||'';
   document.getElementById('ocr-repair').value=d.repair_date||'';
+  document.getElementById('ocr-construction-start').value=d.construction_start||'';
+  document.getElementById('ocr-construction-end').value=d.construction_end||'';
+  document.getElementById('ocr-repair-complete').value=d.repair_complete||'';
   document.getElementById('ocr-memo').value=d.memo||'';
   const conf=d.confidence||{};
   ['owner','date','staff'].forEach(k=>{
@@ -1063,10 +1073,25 @@ function resetOCR(){
   document.getElementById('ocr-proc').style.display='block';
 }
 function transferOCR(){
+  // 基本情報
   document.getElementById('f-owner').value=document.getElementById('ocr-owner').value;
   document.getElementById('f-date').value=document.getElementById('ocr-date').value.replace(/\//g,'-');
   document.getElementById('f-staff').value=document.getElementById('ocr-staff').value;
+  document.getElementById('f-weather').value=document.getElementById('ocr-weather').value||'晴れ';
   document.getElementById('f-memo').value=document.getElementById('ocr-memo').value;
+  // 補修日程
+  const toDateInput = v => v ? v.replace(/\//g,'-') : '';
+  document.getElementById('f-repair').value=toDateInput(document.getElementById('ocr-repair').value);
+  document.getElementById('f-start').value=toDateInput(document.getElementById('ocr-construction-start').value);
+  document.getElementById('f-end').value=toDateInput(document.getElementById('ocr-construction-end').value);
+  document.getElementById('f-done').value=toDateInput(document.getElementById('ocr-repair-complete').value);
+  // 現場IDで物件を自動選択
+  const pid=document.getElementById('ocr-pid').value;
+  if(pid){
+    const sel=document.getElementById('sel-prop');
+    if([...sel.options].some(o=>o.value===pid)){sel.value=pid; fillProp(sel);}
+  }
+  // 指摘事項
   const issues=document.getElementById('ocr-issues').value.split('\n').filter(l=>l.trim());
   const cont=document.getElementById('issues'); cont.innerHTML='';
   (issues.length?issues:['']).forEach(line=>{
@@ -1076,6 +1101,33 @@ function transferOCR(){
   });
   document.getElementById('ocr-s2').style.display='none';
   document.getElementById('ocr-s3').style.display='block';
+}
+
+// ---- 点検記録フォームのリセット ----
+function resetInspectionForm(){
+  if(!confirm('入力内容をすべてクリアしますか？')) return;
+  document.getElementById('sel-prop').value='';
+  document.getElementById('sel-type').value='2年点検・短期保証';
+  document.getElementById('f-owner').value='';
+  document.getElementById('f-addr').value='';
+  document.getElementById('f-hiki').value='';
+  document.getElementById('f-date').value='';
+  document.getElementById('f-staff').value='秋山 忠夫';
+  document.getElementById('f-weather').value='晴れ';
+  document.getElementById('f-repair').value='';
+  document.getElementById('f-start').value='';
+  document.getElementById('f-end').value='';
+  document.getElementById('f-done').value='';
+  document.getElementById('f-status').value='未実施';
+  document.getElementById('f-memo').value='';
+  document.getElementById('issues').innerHTML=`
+    <div class="issue-row">
+      <input type="text" placeholder="例：玄関ドア アテ枠にすき間">
+      <select><option>補修要</option><option>経過観察</option><option>対応不要</option></select>
+      <select><option>未対応</option><option>業者手配中</option><option>補修完了</option></select>
+      <button class="rm-btn" onclick="rmIssue(this)">×</button>
+    </div>`;
+  document.getElementById('save-alert').className='alert';
 }
 
 // ====== GAS ======

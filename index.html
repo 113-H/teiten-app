@@ -935,38 +935,62 @@ function handleUpload(input){
   } else { callOCR(null,file.type); }
 }
 
-async function callOCR(b64,mime){
-  // GAS未設定時はエラー
+async function callOCR(b64, mime){
   if(!gasUrl){
     showOCRError('GAS URLが設定されていません。設定タブからGAS URLを入力してください。');
     return;
   }
 
-  try{
-    // GAS経由でAnthropicAPIを呼び出す（APIキーはGAS側で管理）
-    const r = await fetch(gasUrl, {
-      method: 'POST',
-      headers: {'Content-Type': 'text/plain'},
-      body: JSON.stringify({
-        action: 'ocr_read',
-        payload: {
-          imageBase64: b64,
-          mimeType: mime
-        }
-      })
+  // GASへPOSTする共通関数（リトライ付き）
+  async function postToGAS(action){
+    const body = JSON.stringify({
+      action,
+      payload: { imageBase64: b64, mimeType: mime }
     });
+    // 1回目：通常POST
+    try {
+      const r = await fetch(gasUrl, {
+        method: 'POST',
+        redirect: 'follow',
+        headers: {'Content-Type': 'text/plain'},
+        body
+      });
+      const txt = await r.text();
+      if(txt && !txt.trim().startsWith('<')) return JSON.parse(txt);
+    } catch(e1) { /* 失敗時は下記フォールバックへ */ }
 
-    const txt = await r.text();
-    const res = JSON.parse(txt);
+    // 2回目：no-corsで送ってからGETで結果確認（iOS対策）
+    try {
+      await fetch(gasUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {'Content-Type': 'text/plain'},
+        body
+      });
+      // no-corsはレスポンスが読めないのでGETで状態確認
+      await new Promise(r => setTimeout(r, 3000)); // 3秒待機
+      const gr = await fetch(gasUrl + '?action=get_all_data&t=' + Date.now());
+      // データが取れればGASは生きているのでOCRも処理済みとみなす
+      // ただしOCR結果は取れないためエラー扱い
+      return null;
+    } catch(e2) { return null; }
+  }
 
-    if(!res || res.status !== 'ok'){
-      showOCRError((res && res.message) || '読み取りに失敗しました。再撮影してください。');
+  try {
+    document.getElementById('ocr-proc-msg').textContent = 'AIが手書き文字を解析中（10〜30秒）...';
+    const res = await postToGAS('ocr_read');
+
+    if(!res){
+      showOCRError('GASとの通信に失敗しました。GAS URLを設定タブで再確認してください。');
       return;
     }
-
+    if(res.status !== 'ok'){
+      showOCRError(res.message || '読み取りに失敗しました。再撮影してください。');
+      return;
+    }
     showOCR(res.data);
 
-  }catch(e){
+  } catch(e) {
     showOCRError('通信エラー: ' + e.message);
   }
 }

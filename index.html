@@ -340,7 +340,10 @@
       <div class="card">
         <div class="card-head">
           <div class="card-title">物件一覧</div>
-          <div class="btn-group">
+          <div class="btn-group" style="flex-wrap:wrap;gap:6px;">
+            <input type="text" id="search-owner" placeholder="施主名で検索..."
+              oninput="renderTable()"
+              style="font-size:12px;padding:5px 10px;width:140px;border-radius:var(--radius);border:1px solid var(--border2);">
             <select id="filter-status" onchange="renderTable()" style="font-size:12px;padding:5px 10px;width:auto;">
               <option value="">全ステータス</option>
               <option value="未実施">未実施</option>
@@ -348,6 +351,7 @@
               <option value="完了">完了</option>
               <option value="引渡日未入力">引渡日未入力</option>
             </select>
+            <button class="btn btn-sm" onclick="document.getElementById('search-owner').value='';renderTable();" title="検索クリア">✕</button>
           </div>
         </div>
         <div class="action-bar">
@@ -744,7 +748,24 @@ function statusBadge(s){
 
 function renderTable(){
   const f = document.getElementById('filter-status').value;
-  const data = f ? properties.filter(p=>p.status===f) : properties;
+  const q = (document.getElementById('search-owner')?.value||'').trim().toLowerCase();
+  let data = properties;
+  if(f) data = data.filter(p=>p.status===f);
+  if(q) data = data.filter(p=>(p.owner||'').toLowerCase().includes(q)||(p.addr||'').toLowerCase().includes(q));
+  const hit = q || f ? `（${data.length}件ヒット）` : '';
+
+  // カードタイトルにヒット件数を表示
+  const titleEl = document.querySelector('#screen-dashboard .card-title');
+  if(titleEl) titleEl.textContent = '物件一覧' + hit;
+
+  // 0件の場合のメッセージ
+  if(data.length === 0){
+    const emptyRow = `<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text2);font-size:13px;">「${q}」に一致する物件が見つかりません</td></tr>`;
+    document.getElementById('prop-tbody').innerHTML = emptyRow;
+    document.getElementById('prop-cards').innerHTML = `<div style="text-align:center;padding:2rem;color:var(--text2);font-size:13px;">「${q}」に一致する物件が見つかりません</div>`;
+    updateMetrics();
+    return;
+  }
 
   // PC用テーブル
   document.getElementById('prop-tbody').innerHTML = data.map(p=>`

@@ -321,6 +321,7 @@
         CSVで取込
         <input type="file" accept=".csv" style="display:none;" onchange="loadCSV(this)">
       </label>
+      <button class="btn btn-sm" onclick="exportCSV()">CSV書き出し</button>
       <button class="btn btn-sm btn-primary" onclick="showScreen('inspection',null)">+ 点検記録を入力</button>
     </div>
   </div>
@@ -649,6 +650,22 @@
   </div>
 </div>
 
+<!-- CSV差分プレビューモーダル -->
+<div class="modal-overlay" id="csv-preview-modal">
+  <div class="modal" style="max-width:560px;">
+    <h3>CSV取込の確認</h3>
+    <p id="csv-preview-summary" style="font-size:13px;color:var(--text2);margin-bottom:12px;"></p>
+    <div id="csv-preview-body" style="max-height:360px;overflow-y:auto;padding-right:4px;"></div>
+    <div style="background:var(--amber-bg);border-radius:var(--border-radius-md);padding:8px 12px;font-size:12px;color:var(--amber-txt);margin-top:12px;">
+      手動で編集済みの引渡日・ステータスはCSVで上書きされません。
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="cancelCSVImport()">キャンセル</button>
+      <button class="btn btn-primary" onclick="confirmCSVImport()">この内容で取込む</button>
+    </div>
+  </div>
+</div>
+
 <!-- Export Modal -->
 <div class="modal-overlay" id="export-modal">
   <div class="modal">
@@ -805,6 +822,29 @@ function updateSel(){
 }
 
 // ====== CSV IMPORT ======
+let pendingCSVProps = []; // プレビュー確認待ちのデータ
+
+function parseCSVRows(text){
+  const lines=text.split('\n').filter(l=>l.trim());
+  const rows=lines.slice(1).map(l=>{
+    const cols=[];let cur='',inQ=false;
+    for(const ch of l){if(ch==='"'){inQ=!inQ;}else if(ch===','&&!inQ){cols.push(cur.trim());cur='';}else{cur+=ch;}}
+    cols.push(cur.trim()); return cols;
+  }).filter(r=>r[0]&&r[0].trim());
+  return rows.map(r=>{
+    const delivery=r[17]||'';
+    let scheduled='';
+    const calcYear=(base,y)=>{const d=new Date(base);d.setFullYear(d.getFullYear()+y);return`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;};
+    if(delivery){
+      if(r[3]?.includes('2年')) scheduled=calcYear(delivery,2);
+      else if(r[3]?.includes('1年')) scheduled=calcYear(delivery,1);
+      else if(r[3]?.includes('5年')) scheduled=calcYear(delivery,5);
+      else if(r[3]?.includes('10年')) scheduled=calcYear(delivery,10);
+    }
+    return {id:r[0],owner:r[2],addr:[r[7],r[8],r[9]].filter(Boolean).join(''),delivery,scheduled,staff:r[13]||'',type:r[3]||'',status:delivery?'未実施':'引渡日未入力'};
+  });
+}
+
 function loadCSV(input){
   const file=input.files[0]; if(!file) return;
   const msgEl=document.getElementById('csv-msg');
@@ -813,68 +853,112 @@ function loadCSV(input){
   reader.onload=e=>{
     try{
       const text=new TextDecoder('shift-jis').decode(new Uint8Array(e.target.result));
-      const lines=text.split('\n').filter(l=>l.trim());
-      const rows=lines.slice(1).map(l=>{
-        const cols=[];let cur='',inQ=false;
-        for(const ch of l){if(ch==='"'){inQ=!inQ;}else if(ch===','&&!inQ){cols.push(cur.trim());cur='';}else{cur+=ch;}}
-        cols.push(cur.trim()); return cols;
-      }).filter(r=>r[0]&&r[0].trim());
-      const newProps=rows.map(r=>{
-        const delivery=r[17]||'';
-        let scheduled='';
-        if(delivery && r[3]?.includes('2年')){
-          const d=new Date(delivery); d.setFullYear(d.getFullYear()+2);
-          scheduled=`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
-        } else if(delivery && r[3]?.includes('1年')){
-          const d=new Date(delivery); d.setFullYear(d.getFullYear()+1);
-          scheduled=`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
-        } else if(delivery && r[3]?.includes('5年')){
-          const d=new Date(delivery); d.setFullYear(d.getFullYear()+5);
-          scheduled=`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
-        }
-        return {id:r[0],owner:r[2],addr:[r[7],r[8],r[9]].filter(Boolean).join(''),delivery,scheduled,staff:r[13]||'',type:r[3]||'',status:delivery?'未実施':'引渡日未入力'};
-      });
+      const newProps=parseCSVRows(text);
 
-      let added=0, updated=0, skipped=0;
+      // 差分を計算
+      const toAdd=[], toUpdate=[], noChange=[];
       newProps.forEach(n=>{
-        const i=properties.findIndex(p=>p.id===n.id);
-        if(i < 0){
-          // 新規物件 → そのまま追加
-          properties.push(n);
-          added++;
-        } else {
-          const existing=properties[i];
-          // アプリで手動編集した項目はCSVで上書きしない
-          // ルール：既存の値が空でない場合はアプリ側の値を優先
-          properties[i] = {
-            id: n.id,
-            owner:    existing.owner    || n.owner,
-            addr:     existing.addr     || n.addr,
-            type:     existing.type     || n.type,
-            staff:    existing.staff    || n.staff,
-            // 引渡日・点検期限：既存に値があれば保持、なければCSVの値を使用
-            delivery: existing.delivery || n.delivery,
-            scheduled:existing.scheduled|| n.scheduled,
-            // ステータスはアプリ側を常に優先（点検進捗はアプリで管理）
-            status:   existing.status !== '未実施' && existing.status !== '引渡日未入力'
-                        ? existing.status
-                        : (n.delivery ? '未実施' : '引渡日未入力'),
-          };
-          // 引渡日が今回のCSVで初めて入った場合は点検期限も再計算
-          if(!existing.delivery && n.delivery && !existing.scheduled){
-            properties[i].scheduled = n.scheduled;
-          }
-          updated++;
+        const existing=properties.find(p=>p.id===n.id);
+        if(!existing) toAdd.push(n);
+        else {
+          // 変化があるか確認（引渡日が新たに入った場合など）
+          const hasChange = (!existing.delivery && n.delivery) || (!existing.owner && n.owner) || (!existing.addr && n.addr);
+          if(hasChange) toUpdate.push({existing, new:n});
+          else noChange.push(n);
         }
       });
+      const onlyInSheet = properties.filter(p=>!newProps.find(n=>n.id===p.id));
 
-      saveProps(); renderTable(); renderMaster();
-      showAlert(msgEl,`✓ 取込完了：新規 ${added}件、更新 ${updated}件（手動編集済み項目は保持）`,'ok');
-      if(gasUrl) properties.filter(p=>newProps.find(n=>n.id===p.id)).forEach(p=>postGAS({action:'save_property',payload:{propertyId:p.id,ownerName:p.owner,address:p.addr,deliveryDate:p.delivery,staff:p.staff,inspectionType:p.type,scheduledDate:p.scheduled,status:p.status}}));
+      // プレビューモーダルを表示
+      pendingCSVProps = newProps;
+      showCSVPreview(toAdd, toUpdate, noChange, onlyInSheet, msgEl);
+
     }catch(err){ showAlert(msgEl,'読み込みエラー: '+err.message,'err'); }
   };
   reader.readAsArrayBuffer(file);
 }
+
+function showCSVPreview(toAdd, toUpdate, noChange, onlyInSheet, msgEl){
+  const modal = document.getElementById('csv-preview-modal');
+  const body = document.getElementById('csv-preview-body');
+
+  let html = '';
+
+  if(toAdd.length > 0){
+    html += `<div style="margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:600;color:var(--green-txt);margin-bottom:6px;">新規追加 ${toAdd.length}件</div>`;
+    toAdd.forEach(p=>{ html+=`<div style="font-size:12px;padding:4px 8px;background:var(--green-bg);border-radius:4px;margin-bottom:3px;">+ ${p.owner||'—'}（${p.id}）${p.delivery?'　引渡: '+p.delivery:''}</div>`; });
+    html += '</div>';
+  }
+
+  if(toUpdate.length > 0){
+    html += `<div style="margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:600;color:var(--blue-txt);margin-bottom:6px;">情報補完 ${toUpdate.length}件（引渡日など空欄を補充）</div>`;
+    toUpdate.forEach(u=>{ html+=`<div style="font-size:12px;padding:4px 8px;background:var(--blue-bg);border-radius:4px;margin-bottom:3px;">↑ ${u.existing.owner||'—'}（${u.existing.id}）${u.new.delivery && !u.existing.delivery?'　引渡日を追加: '+u.new.delivery:''}</div>`; });
+    html += '</div>';
+  }
+
+  if(noChange.length > 0){
+    html += `<div style="margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px;">変化なし ${noChange.length}件（既存データを保持）</div>`;
+    noChange.forEach(p=>{ html+=`<div style="font-size:12px;padding:4px 8px;background:var(--surface2);border-radius:4px;margin-bottom:3px;">= ${p.owner||'—'}（${p.id}）</div>`; });
+    html += '</div>';
+  }
+
+  if(onlyInSheet.length > 0){
+    html += `<div style="margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px;">CSVにない既存物件 ${onlyInSheet.length}件（削除しません・そのまま保持）</div>`;
+    onlyInSheet.forEach(p=>{ html+=`<div style="font-size:12px;padding:4px 8px;background:var(--surface2);border-radius:4px;margin-bottom:3px;">― ${p.owner||'—'}（${p.id}）</div>`; });
+    html += '</div>';
+  }
+
+  body.innerHTML = html || '<p style="font-size:13px;color:var(--text2);">変更なし</p>';
+  modal.classList.add('open');
+  document.getElementById('csv-preview-summary').textContent =
+    `新規 ${toAdd.length}件追加・${toUpdate.length}件補完・${noChange.length}件変化なし・既存 ${onlyInSheet.length}件保持`;
+}
+
+function confirmCSVImport(){
+  const msgEl=document.getElementById('csv-msg');
+  document.getElementById('csv-preview-modal').classList.remove('open');
+  if(!pendingCSVProps.length){ showAlert(msgEl,'取込データがありません','err'); return; }
+
+  let added=0, updated=0;
+  pendingCSVProps.forEach(n=>{
+    const i=properties.findIndex(p=>p.id===n.id);
+    if(i<0){ properties.push(n); added++; }
+    else {
+      const ex=properties[i];
+      properties[i]={
+        id:n.id,
+        owner:    ex.owner    ||n.owner,
+        addr:     ex.addr     ||n.addr,
+        type:     ex.type     ||n.type,
+        staff:    ex.staff    ||n.staff,
+        delivery: ex.delivery ||n.delivery,
+        scheduled:ex.scheduled||n.scheduled,
+        status:   ex.status!=='未実施'&&ex.status!=='引渡日未入力' ? ex.status : (n.delivery?'未実施':'引渡日未入力'),
+      };
+      if(!ex.delivery&&n.delivery&&!ex.scheduled) properties[i].scheduled=n.scheduled;
+      updated++;
+    }
+  });
+
+  saveProps(); renderTable(); renderMaster();
+  showAlert(msgEl,`✓ 取込完了：新規 ${added}件追加、${updated}件更新（手動編集済み項目は保持）`,'ok');
+  if(gasUrl) properties.filter(p=>pendingCSVProps.find(n=>n.id===p.id)).forEach(p=>
+    postGAS({action:'save_property',payload:{propertyId:p.id,ownerName:p.owner,address:p.addr,deliveryDate:p.delivery,staff:p.staff,inspectionType:p.type,scheduledDate:p.scheduled,status:p.status}})
+  );
+  pendingCSVProps=[];
+}
+
+function cancelCSVImport(){
+  document.getElementById('csv-preview-modal').classList.remove('open');
+  pendingCSVProps=[];
+  const msgEl=document.getElementById('csv-msg');
+  showAlert(msgEl,'取込をキャンセルしました','ing');
+}
+
 
 // ====== INSPECTION FORM ======
 function fillProp(sel){
@@ -1079,19 +1163,16 @@ function transferOCR(){
   document.getElementById('f-staff').value=document.getElementById('ocr-staff').value;
   document.getElementById('f-weather').value=document.getElementById('ocr-weather').value||'晴れ';
   document.getElementById('f-memo').value=document.getElementById('ocr-memo').value;
-  // 補修日程
   const toDateInput = v => v ? v.replace(/\//g,'-') : '';
   document.getElementById('f-repair').value=toDateInput(document.getElementById('ocr-repair').value);
   document.getElementById('f-start').value=toDateInput(document.getElementById('ocr-construction-start').value);
   document.getElementById('f-end').value=toDateInput(document.getElementById('ocr-construction-end').value);
   document.getElementById('f-done').value=toDateInput(document.getElementById('ocr-repair-complete').value);
-  // 現場IDで物件を自動選択
   const pid=document.getElementById('ocr-pid').value;
   if(pid){
     const sel=document.getElementById('sel-prop');
     if([...sel.options].some(o=>o.value===pid)){sel.value=pid; fillProp(sel);}
   }
-  // 指摘事項
   const issues=document.getElementById('ocr-issues').value.split('\n').filter(l=>l.trim());
   const cont=document.getElementById('issues'); cont.innerHTML='';
   (issues.length?issues:['']).forEach(line=>{
@@ -1099,6 +1180,21 @@ function transferOCR(){
     div.innerHTML=`<input type="text" value="${line.replace(/"/g,'&quot;')}"><select><option>補修要</option><option>経過観察</option><option>対応不要</option></select><select><option>未対応</option><option>業者手配中</option><option>補修完了</option></select><button class="rm-btn" onclick="rmIssue(this)">×</button>`;
     cont.appendChild(div);
   });
+
+  // 画像をGoogleドライブに自動保存
+  const imgEl = document.getElementById('ocr-img');
+  if(gasUrl && imgEl && imgEl.src && imgEl.src.startsWith('data:')){
+    const parts = imgEl.src.split(',');
+    const mime = parts[0].match(/:(.*?);/)[1];
+    const b64 = parts[1];
+    const owner = document.getElementById('ocr-owner').value;
+    const propId = document.getElementById('ocr-pid').value;
+    postGAS({action:'save_image', payload:{imageBase64:b64, mimeType:mime, propertyId:propId, ownerName:owner}})
+      .then(res=>{
+        if(res && res.status==='ok') console.log('画像保存完了:', res.fileName);
+      });
+  }
+
   document.getElementById('ocr-s2').style.display='none';
   document.getElementById('ocr-s3').style.display='block';
 }
@@ -1398,6 +1494,45 @@ async function deleteProperty(){
   closeEditModal();
 }
 
+
+// ====== CSV書き出し ======
+async function exportCSV(){
+  if(!gasUrl){ alert('GAS URLが設定されていません。'); return; }
+  const btn=document.querySelector('button[onclick="exportCSV()"]');
+  if(btn){btn.textContent='取得中...';btn.disabled=true;}
+  try{
+    const res=await postGAS({action:'get_inspection_data'});
+    if(btn){btn.textContent='CSV書き出し';btn.disabled=false;}
+    if(!res||res.status!=='ok'){alert('データ取得に失敗しました。');return;}
+    const {inspections,issues}=res;
+    if(!inspections||inspections.length===0){alert('点検記録がまだありません。');return;}
+    const d=new Date();
+    const dt=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+    const insH=['記録ID','現場ID','施主氏名','実検日','担当者','天候','点検種別','点検ステータス','補修予定日','着工予定日','完工予定日','補修完了日','備考','登録日時'];
+    const insR=inspections.map(r=>[r.recordId,r.propertyId,r.ownerName,r.date,r.staff,r.weather,r.type,r.status,r.repairDate,r.startDate,r.endDate,r.doneDate,r.memo,r.createdAt]);
+    dlCSV('点検記録_'+dt,insH,insR);
+    if(issues&&issues.length>0){
+      setTimeout(()=>{
+        const issH=['記録ID','現場ID','No','指摘内容','補修要否','対応状況','補修予定日','備考'];
+        const issR=issues.map(r=>[r.recordId,r.propertyId,r.no,r.content,r.repairNeeded,r.repairStatus,r.repairDate,r.memo]);
+        dlCSV('指摘事項_'+dt,issH,issR);
+      },600);
+    }
+  }catch(e){
+    if(btn){btn.textContent='CSV書き出し';btn.disabled=false;}
+    alert('エラー: '+e.message);
+  }
+}
+function dlCSV(fname,headers,rows){
+  const BOM='\uFEFF';
+  const lines=[headers,...rows].map(row=>row.map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(','));
+  const blob=new Blob([BOM+lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=fname+'.csv';
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);URL.revokeObjectURL(url);
+}
 
 function showAlert(el,msg,type){ el.textContent=msg; el.className='alert alert-'+type+' show'; }
 
